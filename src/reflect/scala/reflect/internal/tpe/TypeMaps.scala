@@ -18,7 +18,7 @@ private[internal] trait TypeMaps {
     */
   object normalizeAliases extends TypeMap {
     def apply(tp: Type): Type = tp match {
-      case TypeRef(_, sym, _) if sym.isAliasType =>
+      case TypeRef(_, sym, _) if sym.isAliasTypeNoKidding =>
         def msg = if (tp.isHigherKinded) s"Normalizing type alias function $tp" else s"Dealiasing type alias $tp"
         mapOver(logResult(msg)(tp.normalize))
       case _                                     => mapOver(tp)
@@ -46,11 +46,11 @@ private[internal] trait TypeMaps {
   /** Type with all top-level occurrences of abstract types replaced by their bounds */
   object abstractTypesToBounds extends TypeMap {
     def apply(tp: Type): Type = tp match {
-      case TypeRef(_, sym, _) if sym.isAliasType    => apply(tp.dealias)
-      case TypeRef(_, sym, _) if sym.isAbstractType => apply(tp.bounds.hi)
-      case rtp @ RefinedType(parents, decls)        => copyRefinedType(rtp, parents mapConserve this, decls)
-      case AnnotatedType(_, _, _)                   => mapOver(tp)
-      case _                                        => tp             // no recursion - top level only
+      case TypeRef(_, sym, _) if sym.isAliasTypeNoKidding => apply(tp.dealias)
+      case TypeRef(_, sym, _) if sym.isAbstractType       => apply(tp.bounds.hi)
+      case rtp @ RefinedType(parents, decls)              => copyRefinedType(rtp, parents mapConserve this, decls)
+      case AnnotatedType(_, _, _)                         => mapOver(tp)
+      case _                                              => tp             // no recursion - top level only
     }
   }
 
@@ -213,7 +213,7 @@ private[internal] trait TypeMaps {
       *  if necessary when the symbol is an alias.
       */
     private def applyToSymbolInfo(sym: Symbol): Type = {
-      if (trackVariance && !variance.isInvariant && sym.isAliasType)
+      if (trackVariance && !variance.isInvariant && sym.isAliasTypeNoKidding)
         withVariance(Invariant)(this(sym.info))
       else
         this(sym.info)
@@ -877,7 +877,7 @@ private[internal] trait TypeMaps {
       case tp1 @ TypeRef(SingleType(NoPrefix, Arg(pid)), sym, targs) =>
         val arg = actuals(pid)
         val res = typeRef(arg, sym, targs)
-        if (res.typeSymbolDirect.isAliasType) res.dealias else tp1
+        if (res.typeSymbolDirect.isAliasTypeNoKidding) res.dealias else tp1
       // don't return the original `tp`, which may be different from `tp1`,
       // due to dropping annotations
       case tp1 => tp1
@@ -1054,7 +1054,7 @@ private[internal] trait TypeMaps {
       }
       else {
         var rebind0 = pre.findMember(sym.name, BRIDGE, 0, stableOnly = true) orElse {
-          if (sym.isAliasType) throw missingAliasException
+          if (sym.isAliasTypeNoKidding) throw missingAliasException
           devWarning(s"$pre.$sym no longer exist at phase $phase")
           throw new MissingTypeControl // For build manager and presentation compiler purposes
         }

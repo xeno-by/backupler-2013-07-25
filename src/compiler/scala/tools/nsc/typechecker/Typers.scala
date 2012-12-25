@@ -242,7 +242,7 @@ trait Typers extends Adaptations with Tags {
     def dropExistential(tp: Type): Type = tp match {
       case ExistentialType(tparams, tpe) =>
         new SubstWildcardMap(tparams).apply(tp)
-      case TypeRef(_, sym, _) if sym.isAliasType =>
+      case TypeRef(_, sym, _) if sym.isAliasTypeNoKidding =>
         val tp0 = tp.dealias
         if (tp eq tp0) {
           debugwarn(s"dropExistential did not progress dealiasing $tp, see SI-7126")
@@ -409,7 +409,7 @@ trait Typers extends Adaptations with Tags {
             case TypeRef(_, sym, args) =>
               checkNoEscape(sym)
               if (!hiddenSymbols.isEmpty && hiddenSymbols.head == sym &&
-                  sym.isAliasType && sameLength(sym.typeParams, args)) {
+                  sym.isAliasTypeNoKidding && sameLength(sym.typeParams, args)) {
                 hiddenSymbols = hiddenSymbols.tail
                 t.dealias
               } else t
@@ -3806,7 +3806,7 @@ trait Typers extends Adaptations with Tags {
       val dealiasLocals = new TypeMap {
         def apply(tp: Type): Type = tp match {
           case TypeRef(pre, sym, args) =>
-            if (sym.isAliasType && containsLocal(tp)) apply(tp.dealias)
+            if (sym.isAliasTypeNoKidding && containsLocal(tp)) apply(tp.dealias)
             else {
               if (pre.isVolatile)
                 InferTypeWithVolatileTypeSelectionError(tree, pre)

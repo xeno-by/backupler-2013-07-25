@@ -2092,6 +2092,10 @@ trait Types
       if (isHigherKinded) etaExpand else super.normalizeImpl
   }
 
+  trait MacroTypeRef extends TypeRef {
+    require(sym.isMacroType, sym)
+  }
+
   trait ClassTypeRef extends TypeRef {
     // !!! There are scaladoc-created symbols arriving which violate this require.
     // require(sym.isClass, sym)
@@ -2142,7 +2146,7 @@ trait Types
   }
 
   trait AliasTypeRef extends NonClassTypeRef {
-    require(sym.isAliasType, sym)
+    require(sym.isAliasTypeNoKidding, sym)
 
     override def dealias    = if (typeParamsMatchArgs) betaReduce.dealias else super.dealias
     override def isStable   = normalize.isStable
@@ -2414,7 +2418,7 @@ trait Types
         }
         else if (isTupleType(this))
           targs.mkString("(", ", ", if (hasLength(targs, 1)) ",)" else ")")
-        else if (sym.isAliasType && prefixChain.exists(_.termSymbol.isSynthetic) && (this ne this.normalize))
+        else if (sym.isAliasTypeNoKidding && prefixChain.exists(_.termSymbol.isSynthetic) && (this ne this.normalize))
           "" + normalize
         else
           ""
@@ -2440,9 +2444,11 @@ trait Types
   }
 
   // No longer defined as anonymous classes in `object TypeRef` to avoid an unnecessary outer pointer.
+  private final class MacroArgsTypeRef(pre: Type, sym: Symbol, args: List[Type]) extends ArgsTypeRef(pre, sym, args) with MacroTypeRef
   private final class AliasArgsTypeRef(pre: Type, sym: Symbol, args: List[Type]) extends ArgsTypeRef(pre, sym, args) with AliasTypeRef
   private final class AbstractArgsTypeRef(pre: Type, sym: Symbol, args: List[Type]) extends ArgsTypeRef(pre, sym, args) with AbstractTypeRef
   private final class ClassArgsTypeRef(pre: Type, sym: Symbol, args: List[Type]) extends ArgsTypeRef(pre, sym, args) with ClassTypeRef
+  private final class MacroNoArgsTypeRef(pre: Type, sym: Symbol) extends NoArgsTypeRef(pre, sym) with MacroTypeRef
   private final class AliasNoArgsTypeRef(pre: Type, sym: Symbol) extends NoArgsTypeRef(pre, sym) with AliasTypeRef
   private final class AbstractNoArgsTypeRef(pre: Type, sym: Symbol) extends NoArgsTypeRef(pre, sym) with AbstractTypeRef
   private final class ClassNoArgsTypeRef(pre: Type, sym: Symbol) extends NoArgsTypeRef(pre, sym) with ClassTypeRef
@@ -2450,17 +2456,19 @@ trait Types
   object TypeRef extends TypeRefExtractor {
     def apply(pre: Type, sym: Symbol, args: List[Type]): Type = unique({
       if (args.nonEmpty) {
-        if (sym.isAliasType)              new AliasArgsTypeRef(pre, sym, args)
-        else if (sym.isAbstractType)      new AbstractArgsTypeRef(pre, sym, args)
-        else                              new ClassArgsTypeRef(pre, sym, args)
+        if (sym.isMacroType)               new MacroArgsTypeRef(pre, sym, args)
+        else if (sym.isAliasTypeNoKidding) new AliasArgsTypeRef(pre, sym, args)
+        else if (sym.isAbstractType)       new AbstractArgsTypeRef(pre, sym, args)
+        else                               new ClassArgsTypeRef(pre, sym, args)
       }
       else {
-        if (sym.isAliasType)              new AliasNoArgsTypeRef(pre, sym)
-        else if (sym.isAbstractType)      new AbstractNoArgsTypeRef(pre, sym)
-        else if (sym.isRefinementClass)   new RefinementTypeRef(pre, sym)
-        else if (sym.isPackageClass)      new PackageTypeRef(pre, sym)
-        else if (sym.isModuleClass)       new ModuleTypeRef(pre, sym)
-        else                              new ClassNoArgsTypeRef(pre, sym)
+        if (sym.isMacroType)               new MacroNoArgsTypeRef(pre, sym)
+        else if (sym.isAliasTypeNoKidding) new AliasNoArgsTypeRef(pre, sym)
+        else if (sym.isAbstractType)       new AbstractNoArgsTypeRef(pre, sym)
+        else if (sym.isRefinementClass)    new RefinementTypeRef(pre, sym)
+        else if (sym.isPackageClass)       new PackageTypeRef(pre, sym)
+        else if (sym.isModuleClass)        new ModuleTypeRef(pre, sym)
+        else                               new ClassNoArgsTypeRef(pre, sym)
       }
     })
   }
@@ -3485,7 +3493,7 @@ trait Types
     val sym1 = if (sym.isAbstractType) rebind(pre, sym) else sym
     // don't expand cyclical type alias
     // we require that object is initialized, thus info.typeParams instead of typeParams.
-    if (sym1.isAliasType && sameLength(sym1.info.typeParams, args) && !sym1.lockOK)
+    if (sym1.isAliasTypeNoKidding && sameLength(sym1.info.typeParams, args) && !sym1.lockOK)
       throw new RecoverableCyclicReference(sym1)
 
     val pre1 = pre match {
@@ -3501,7 +3509,7 @@ trait Types
   // Optimization to avoid creating unnecessary new typerefs.
   def copyTypeRef(tp: Type, pre: Type, sym: Symbol, args: List[Type]): Type = tp match {
     case TypeRef(pre0, sym0, _) if pre == pre0 && sym0.name == sym.name =>
-      if (sym.isAliasType && sameLength(sym.info.typeParams, args) && !sym.lockOK)
+      if (sym.isAliasTypeNoKidding && sameLength(sym.info.typeParams, args) && !sym.lockOK)
         throw new RecoverableCyclicReference(sym)
 
       TypeRef(pre, sym, args)
@@ -3662,7 +3670,6 @@ trait Types
       }
       newExistentialType(tparams1, tpe1)
     }
-
 
 
 // Hash consing --------------------------------------------------------------
@@ -4127,7 +4134,7 @@ trait Types
             info2.bounds.containsType(memberTp1) &&
             kindsConform(List(sym2), List(memberTp1), tp1, sym1.owner)
         }
-      || sym2.isAliasType && tp2.memberType(sym2).substThis(tp2.typeSymbol, tp1) =:= tp1.memberType(sym1) //@MAT ok
+      || sym2.isAliasTypeNoKidding && tp2.memberType(sym2).substThis(tp2.typeSymbol, tp1) =:= tp1.memberType(sym1) //@MAT ok
     )
   }
 
