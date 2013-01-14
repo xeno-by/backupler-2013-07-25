@@ -51,21 +51,24 @@ trait Helpers {
 
   /** Increases metalevel of the type, i.e. transforms:
    *    * T to c.Expr[T]
+   *    * <untyped> to c.Tree
    *
    *  @see Metalevels.scala for more information and examples about metalevels
    */
   def increaseMetalevel(pre: Type, tp: Type): Type = dealiasAndRewrap(tp) {
+    case TypeRef(_, UntypedClass, Nil) => typeRef(pre, MacroContextTreeType, Nil)
     case tp => typeRef(pre, MacroContextExprClass, List(tp))
   }
 
   /** Decreases metalevel of the type, i.e. transforms:
    *    * c.Expr[T] to T
-   *    * Anything else to Any
+   *    * c.Tree to <untyped>
    *
    *  @see Metalevels.scala for more information and examples about metalevels
    */
   def decreaseMetalevel(tp: Type): Type = dealiasAndRewrap(tp) {
+    case TreeType() => UntypedClass.tpe
     case ExprClassOf(runtimeType) => runtimeType
-    case _ => AnyClass.tpe // so that macro impls with rhs = ??? don't screw up our inference
+    case _ => UntypedClass.tpe // so that macro impls with rhs = ??? don't screw up our inference
   }
 }

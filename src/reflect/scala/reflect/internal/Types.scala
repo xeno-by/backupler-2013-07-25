@@ -2397,6 +2397,7 @@ trait Types
     private def customToString = sym match {
       case RepeatedParamClass => args.head + "*"
       case ByNameParamClass   => "=> " + args.head
+      case UntypedClass       => "_"
       case _                  =>
         def targs = dealiasWiden.typeArgs
 

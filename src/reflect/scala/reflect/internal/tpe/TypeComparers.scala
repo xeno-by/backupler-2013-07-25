@@ -334,6 +334,7 @@ trait TypeComparers {
   private def isSubType2(tp1: Type, tp2: Type, depth: Int): Boolean = {
     if ((tp1 eq tp2) || isErrorOrWildcard(tp1) || isErrorOrWildcard(tp2)) return true
     if ((tp1 eq NoType) || (tp2 eq NoType)) return false
+    if ((tp1 eq UntypedClass.tpe) || (tp2 eq UntypedClass.tpe)) return false
     if (tp1 eq NoPrefix) return (tp2 eq NoPrefix) || tp2.typeSymbol.isPackageClass // !! I do not see how the "isPackageClass" would be warranted by the spec
     if (tp2 eq NoPrefix) return tp1.typeSymbol.isPackageClass
     if (isSingleType(tp1) && isSingleType(tp2) || isConstantType(tp1) && isConstantType(tp2)) return tp1 =:= tp2

@@ -47,7 +47,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
 
   import global._
   import definitions._
-  import treeInfo.{isRepeatedParamType => _, _}
+  import treeInfo.{isRepeatedParamType => _, isUntypedType => _, _}
   import MacrosStats._
 
   def globalSettings = global.settings
@@ -93,6 +93,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
     // flattens the macro impl's parameter lists having symbols replaced with their fingerprints
     // currently fingerprints are calculated solely from types of the symbols:
     //   * c.Expr[T] => IMPLPARAM_EXPR
+    //   * c.Tree => IMPLPARAM_TREE
     //   * c.WeakTypeTag[T] => index of the type parameter corresponding to that type tag
     //   * everything else (e.g. scala.reflect.macros.Context) => IMPLPARAM_OTHER
     // f.ex. for: def impl[T: WeakTypeTag, U, V: WeakTypeTag](c: Context)(x: c.Expr[T], y: c.Tree): (U, V) = ???
@@ -124,7 +125,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
    *        "className" = "Macros$"))
    */
   object MacroImplBinding {
-    val versionFormat = 4.0
+    val versionFormat = 5.0
 
     def pickleAtom(obj: Any): Tree =
       obj match {
@@ -164,7 +165,8 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
       def signature: List[List[Fingerprint]] = {
         def fingerprint(tpe: Type): Fingerprint = tpe.dealiasWiden match {
           case TypeRef(_, RepeatedParamClass, underlying :: Nil) => fingerprint(underlying)
-          case ExprClassOf(_) => Lifted
+          case ExprClassOf(_) => LiftedTyped
+          case TreeType() => LiftedUntyped
           case _ => Other
         }
 
@@ -250,7 +252,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
   def computeMacroDefTypeFromMacroImplRef(macroDdef: DefDef, macroImplRef: Tree): Type = {
     macroImplRef match {
       case MacroImplReference(_, _, macroImpl, targs) =>
-        // Step I. Transform c.Expr[T] to T and everything else to Any
+        // Step I. Transform c.Expr[T] to T and c.Tree to <untyped>
         var runtimeType = decreaseMetalevel(macroImpl.info.finalResultType)
 
         // Step II. Transform type parameters of a macro implementation into type arguments in a macro definition's body
@@ -388,7 +390,8 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
             val wrappedArgs = mapWithIndex(args)((arg, j) => {
               val fingerprint = implParams(min(j, implParams.length - 1))
               fingerprint match {
-                case Lifted => context.Expr[Nothing](arg)(TypeTag.Nothing) // TODO: SI-5752
+                case LiftedTyped => context.Expr[Nothing](arg)(TypeTag.Nothing) // TODO: SI-5752
+                case LiftedUntyped => arg
                 case _ => abort(s"unexpected fingerprint $fingerprint in $binding with paramss being $paramss " +
                                 s"corresponding to arg $arg in $argss")
               }
@@ -604,7 +607,9 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
         // `macroExpandApply` is called from `adapt`, where implicit conversions are disabled
         // therefore we need to re-enable the conversions back temporarily
         if (macroDebugVerbose) println(s"typecheck #1 (against expectedTpe = $expectedTpe): $expanded")
-        val expanded1 = typer.context.withImplicitsEnabled(typer.typed(expanded, mode, expectedTpe))
+        val expanded1 =
+          if (isUntypedType(expectedTpe)) expanded
+          else typer.context.withImplicitsEnabled(typer.typed(expanded, mode, expectedTpe))
         if (expanded1.isErrorTyped) {
           if (macroDebugVerbose) println(s"typecheck #1 has failed: ${typer.context.reportBuffer.errors}")
           expanded1
@@ -896,8 +901,8 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
             Success(atPos(enclosingMacroPosition.focus)(expanded))
           }
           expanded match {
-            case expanded: Expr[_] if expandee.symbol.isTermMacro => validateResultingTree(expanded.tree)
-            case expanded: Tree if expandee.symbol.isTypeMacro => validateResultingTree(expanded)
+            case expanded: Expr[_] => validateResultingTree(expanded.tree)
+            case expanded: Tree => validateResultingTree(expanded)
             case _ => MacroExpansionHasInvalidTypeError(expandee, expanded)
           }
         } catch {
@@ -952,11 +957,13 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
   private def calculateUndetparams(expandee: Tree): scala.collection.mutable.Set[Int] =
     delayed.get(expandee).getOrElse {
       val calculated = scala.collection.mutable.Set[Symbol]()
-      expandee foreach (sub => {
+      val treeInfo.Applied(core, _, argss) = expandee
+      val traversalRoots = if (isUntypedMacroApplication(core)) argss.flatten else List(expandee)
+      traversalRoots foreach (_ foreach (sub => {
         def traverse(sym: Symbol) = if (sym != null && (undetparams contains sym.id)) calculated += sym
         if (sub.symbol != null) traverse(sub.symbol)
         if (sub.tpe != null) sub.tpe foreach (sub => traverse(sub.typeSymbol))
-      })
+      }))
       macroLogVerbose("calculateUndetparams: %s".format(calculated))
       calculated map (_.id)
     }
@@ -1019,10 +1026,12 @@ class Fingerprint(val value: Int) extends AnyVal {
   def paramPos = { assert(isTag, this); value }
   def isTag = value >= 0
   def isOther = this == Other
-  def isExpr = this == Lifted
+  def isExpr = this == LiftedTyped
+  def isTree = this == LiftedUntyped
   override def toString = this match {
     case Other => "Other"
-    case Lifted => "Expr"
+    case LiftedTyped => "Expr"
+    case LiftedUntyped => "Tree"
     case _ => s"Tag($value)"
   }
 }
@@ -1030,5 +1039,6 @@ class Fingerprint(val value: Int) extends AnyVal {
 object Fingerprint {
   def Tagged(tparamPos: Int) = new Fingerprint(tparamPos)
   val Other = new Fingerprint(-1)
-  val Lifted = new Fingerprint(-2)
+  val LiftedTyped = new Fingerprint(-2)
+  val LiftedUntyped = new Fingerprint(-3)
 }
