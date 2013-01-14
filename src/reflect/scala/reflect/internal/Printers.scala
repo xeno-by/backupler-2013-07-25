@@ -421,6 +421,9 @@ trait Printers extends api.Printers { self: SymbolTable =>
         case AppliedTypeTree(tp, args) =>
           print(tp); printRow(args, "[", ", ", "]")
 
+        case DependentTypeTree(tp, args) =>
+          print(tp); printRow(args, "(", ", ", ")")
+
         case TypeBoundsTree(lo, hi) =>
           // Avoid printing noisy empty typebounds everywhere
           // Untyped empty bounds are not printed by printOpt,

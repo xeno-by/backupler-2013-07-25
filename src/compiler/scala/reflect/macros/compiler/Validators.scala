@@ -150,7 +150,10 @@ trait Validators {
       val macroDefRet =
         if (!macroDdef.tpt.isEmpty) typer.typedType(macroDdef.tpt).tpe
         else computeMacroDefTypeFromMacroImplRef(macroDdef, macroImplRef)
-      val implReturnType = sigma(increaseMetalevel(ctxPrefix, macroDefRet))
+      val implReturnType =
+        if (macroDef.isTermMacro) sigma(increaseMetalevel(ctxPrefix, macroDefRet))
+        else if (macroDef.isTypeMacro) typeRef(ctxPrefix, TreesTreeType, Nil)
+        else global.abort(s"unknown macro flavor: $macroDef")
 
       object SigmaTypeMap extends TypeMap {
         def mapPrefix(pre: Type) = pre match {

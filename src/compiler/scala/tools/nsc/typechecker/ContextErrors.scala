@@ -232,6 +232,12 @@ trait ContextErrors {
         setError(tree)
       }
 
+      // typedDependentTypeTree
+      def DependentTypeNoParametersError(tree: Tree, errTpe: Type) = {
+        issueNormalTypeError(tree, errTpe + " does not take parameters")
+        setError(tree)
+      }
+
       // typedTypeDef
       def LowerBoundError(tree: TypeDef, lowB: Type, highB: Type) =
         issueNormalTypeError(tree, "lower bound "+lowB+" does not conform to upper bound "+highB)
@@ -692,6 +698,15 @@ trait ContextErrors {
         issueNormalTypeError(expandee, s"macro in $role role can only expand into $allowedExpansions")
       }
 
+      def MacroTypeHasntBeenExpandedError(expandee: Tree) = {
+        issueNormalTypeError(expandee, "macro has not been expanded")
+      }
+
+      def MacroTypeExpansionViolatesOverriddenBounds(expandee: Tree, result: Type, overridden: Symbol, bounds: Type) = {
+        issueNormalTypeError(expandee, s"macro expansion $result violates bounds $bounds of the overridden $overridden in ${overridden.owner}")
+      }
+
+      // same reason as for MacroBodyTypecheckException
       case object MacroExpansionException extends Exception with scala.util.control.ControlThrowable
 
       protected def macroExpansionError(expandee: Tree, msg: String, pos: Position = NoPosition) = {
@@ -782,8 +797,17 @@ trait ContextErrors {
       }
 
       def MacroExpansionHasInvalidTypeError(expandee: Tree, expanded: Any) = {
-        val expected = "expr"
-        val isPathMismatch = expanded != null && expanded.isInstanceOf[scala.reflect.api.Exprs#Expr[_]]
+        val expected =
+          if (expandee.symbol.isTermMacro) "expr or tree"
+          else if (expandee.symbol.isTypeMacro) "tree"
+          else abort(expandee.symbol.toString)
+        def isUnaffiliatedExpr = expanded.isInstanceOf[scala.reflect.api.Exprs#Expr[_]]
+        def isUnaffiliatedTree = expanded.isInstanceOf[scala.reflect.api.Trees#TreeApi]
+        val isPathMismatch = expanded != null && {
+          if (expandee.symbol.isTermMacro) isUnaffiliatedExpr || isUnaffiliatedTree
+          else if (expandee.symbol.isTypeMacro) isUnaffiliatedTree
+          else abort(expandee.symbol.toString)
+        }
         macroExpansionError(expandee,
           s"macro must return a compiler-specific $expected; returned value is " + (
             if (expanded == null) "null"

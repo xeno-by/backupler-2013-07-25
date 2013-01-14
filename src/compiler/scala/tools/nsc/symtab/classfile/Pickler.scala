@@ -424,6 +424,10 @@ abstract class Pickler extends SubComponent {
           putTree(tpt)
           putTrees(args)
 
+        case DependentTypeTree(tpt, args) =>
+          putTree(tpt)
+          putTrees(args)
+
         case TypeBoundsTree(lo, hi) =>
           putTree(lo)
           putTree(hi)
@@ -968,6 +972,13 @@ abstract class Pickler extends SubComponent {
 
         case tree@AppliedTypeTree(tpt, args) =>
           writeNat(APPLIEDTYPEtree)
+          writeRef(tree.tpe)
+          writeRef(tpt)
+          writeRefs(args)
+          TREE
+
+        case tree@DependentTypeTree(tpt, args) =>
+          writeNat(DEPENDENTTYPEtree)
           writeRef(tree.tpe)
           writeRef(tpt)
           writeRefs(args)
