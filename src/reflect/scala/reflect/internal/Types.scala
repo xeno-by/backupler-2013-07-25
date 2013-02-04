@@ -109,38 +109,20 @@ trait Types extends api.Types { self: SymbolTable =>
   /** The current skolemization level, needed for the algorithms
    *  in isSameType, isSubType that do constraint solving under a prefix.
    */
-  var skolemizationLevel = 0
+  private var _skolemizationLevel = 0
+  def skolemizationLevel = _skolemizationLevel
+  def skolemizationLevel_=(value: Int) = _skolemizationLevel = value
 
   /** A log of type variable with their original constraints. Used in order
    *  to undo constraints in the case of isSubType/isSameType failure.
    */
-  lazy val undoLog = newUndoLog
-
-  protected def newUndoLog = new UndoLog
+  private lazy val _undoLog = new UndoLog
+  def undoLog = _undoLog
 
   class UndoLog extends Clearable {
     private type UndoPairs = List[(TypeVar, TypeConstraint)]
     //OPT this method is public so we can do `manual inlining`
     var log: UndoPairs = List()
-
-    /*
-     * These two methods provide explicit locking mechanism that is overridden in SynchronizedUndoLog.
-     *
-     * The idea behind explicit locking mechanism is that all public methods that access mutable state
-     * will have to obtain the lock for their entire execution so both reads and writes can be kept in
-     * right order. Originally, that was achieved by overriding those public methods in
-     * `SynchronizedUndoLog` which was fine but expensive. The reason is that those public methods take
-     * thunk as argument and if we keep them non-final there's no way to make them inlined so thunks
-     * can go away.
-     *
-     * By using explicit locking we can achieve inlining.
-     *
-     * NOTE: They are made public for now so we can apply 'manual inlining' (copy&pasting into hot
-     * places implementation of `undo` or `undoUnless`). This should be changed back to protected
-     * once inliner is fixed.
-     */
-    def lock(): Unit = ()
-    def unlock(): Unit = ()
 
     // register with the auto-clearing cache manager
     perRunCaches.recordCache(this)
@@ -165,41 +147,28 @@ trait Types extends api.Types { self: SymbolTable =>
     }
 
     def clear() {
-      lock()
-      try {
-        if (settings.debug.value)
-          self.log("Clearing " + log.size + " entries from the undoLog.")
-        log = Nil
-      } finally unlock()
+      if (settings.debug.value)
+        self.log("Clearing " + log.size + " entries from the undoLog.")
+      log = Nil
     }
-    def size = {
-      lock()
-      try log.size finally unlock()
-    }
+    def size = log.size
 
     // `block` should not affect constraints on typevars
     def undo[T](block: => T): T = {
-      lock()
-      try {
-        val before = log
-
-        try block
-        finally undoTo(before)
-      } finally unlock()
+      val before = log
+      try block
+      finally undoTo(before)
     }
 
     // if `block` evaluates to false, it should not affect constraints on typevars
     def undoUnless(block: => Boolean): Boolean = {
-      lock()
-      try {
-        val before = log
-        var result = false
+      val before = log
+      var result = false
 
-        try result = block
-        finally if (!result) undoTo(before)
+      try result = block
+      finally if (!result) undoTo(before)
 
-        result
-      } finally unlock()
+      result
     }
   }
 
@@ -208,7 +177,8 @@ trait Types extends api.Types { self: SymbolTable =>
    *  It makes use of the fact that these two operations depend only on the parents,
    *  not on the refinement.
    */
-  val intersectionWitness = perRunCaches.newWeakMap[List[Type], WeakReference[Type]]()
+  private val _intersectionWitness = perRunCaches.newWeakMap[List[Type], WeakReference[Type]]()
+  def intersectionWitness = _intersectionWitness
 
   /** A proxy for a type (identified by field `underlying`) that forwards most
    *  operations to it (for exceptions, see WrappingProxy, which forwards even more operations).
@@ -2066,8 +2036,12 @@ trait Types extends api.Types { self: SymbolTable =>
     def apply(value: Constant) = unique(new UniqueConstantType(value))
   }
 
-  private var volatileRecursions: Int = 0
-  private val pendingVolatiles = new mutable.HashSet[Symbol]
+  private var _volatileRecursions: Int = 0
+  def volatileRecursions = _volatileRecursions
+  def volatileRecursions_=(value: Int) = _volatileRecursions = value
+
+  private val _pendingVolatiles = new mutable.HashSet[Symbol]
+  def pendingVolatiles = _pendingVolatiles
 
   class ArgsTypeRef(pre0: Type, sym0: Symbol, args0: List[Type]) extends TypeRef(pre0, sym0, args0) {
     require(args0.nonEmpty, this)
@@ -5302,7 +5276,9 @@ trait Types extends api.Types { self: SymbolTable =>
     }
   }
 
-  private var subsametypeRecursions: Int = 0
+  private var _subsametypeRecursions: Int = 0
+  def subsametypeRecursions = _subsametypeRecursions
+  def subsametypeRecursions_=(value: Int) = _subsametypeRecursions = value
 
   private def isUnifiable(pre1: Type, pre2: Type) =
     (beginsWithTypeVarOrIsRefined(pre1) || beginsWithTypeVarOrIsRefined(pre2)) && (pre1 =:= pre2)
@@ -5340,16 +5316,13 @@ trait Types extends api.Types { self: SymbolTable =>
 //      isSameType1(tp1, tp2)
 //    }
 
-    undoLog.lock()
-    try {
-      val before = undoLog.log
-      var result = false
+    val before = undoLog.log
+    var result = false
 
-      try result = {
-        isSameType1(tp1, tp2)
-      } finally if (!result) undoLog.undoTo(before)
-      result
-    } finally undoLog.unlock()
+    try result = {
+      isSameType1(tp1, tp2)
+    } finally if (!result) undoLog.undoTo(before)
+    result
   } finally {
     subsametypeRecursions -= 1
     // XXX AM TODO: figure out when it is safe and needed to clear the log -- the commented approach below is too eager (it breaks #3281, #3866)
@@ -5691,9 +5664,15 @@ trait Types extends api.Types { self: SymbolTable =>
    */
   final def hasLength(xs: List[_], len: Int) = xs.lengthCompare(len) == 0
 
-  private val pendingSubTypes = new mutable.HashSet[SubTypePair]
-  private var basetypeRecursions: Int = 0
-  private val pendingBaseTypes = new mutable.HashSet[Type]
+  private val _pendingSubTypes = new mutable.HashSet[SubTypePair]
+  def pendingSubTypes = _pendingSubTypes
+
+  private var _basetypeRecursions: Int = 0
+  def basetypeRecursions = _basetypeRecursions
+  def basetypeRecursions_=(value: Int) = _basetypeRecursions = value
+
+  private val _pendingBaseTypes = new mutable.HashSet[Type]
+  def pendingBaseTypes = _pendingBaseTypes
 
   def isSubType(tp1: Type, tp2: Type): Boolean = isSubType(tp1, tp2, AnyDepth)
 
@@ -5719,30 +5698,27 @@ trait Types extends api.Types { self: SymbolTable =>
 //      }
 //    }
 
-    undoLog.lock()
-    try {
-      val before = undoLog.log
-      var result = false
+    val before = undoLog.log
+    var result = false
 
-      try result = { // if subtype test fails, it should not affect constraints on typevars
-        if (subsametypeRecursions >= LogPendingSubTypesThreshold) {
-          val p = new SubTypePair(tp1, tp2)
-          if (pendingSubTypes(p))
-            false
-          else
-            try {
-              pendingSubTypes += p
-              isSubType2(tp1, tp2, depth)
-            } finally {
-              pendingSubTypes -= p
-            }
-        } else {
-          isSubType2(tp1, tp2, depth)
-        }
-      } finally if (!result) undoLog.undoTo(before)
+    try result = { // if subtype test fails, it should not affect constraints on typevars
+      if (subsametypeRecursions >= LogPendingSubTypesThreshold) {
+        val p = new SubTypePair(tp1, tp2)
+        if (pendingSubTypes(p))
+          false
+        else
+          try {
+            pendingSubTypes += p
+            isSubType2(tp1, tp2, depth)
+          } finally {
+            pendingSubTypes -= p
+          }
+      } else {
+        isSubType2(tp1, tp2, depth)
+      }
+    } finally if (!result) undoLog.undoTo(before)
 
-      result
-    } finally undoLog.unlock()
+    result
   } finally {
     subsametypeRecursions -= 1
     // XXX AM TODO: figure out when it is safe and needed to clear the log -- the commented approach below is too eager (it breaks #3281, #3866)
@@ -6688,8 +6664,11 @@ trait Types extends api.Types { self: SymbolTable =>
     && isNumericSubClass(tp1.typeSymbol, tp2.typeSymbol)
   )
 
-  private val lubResults = new mutable.HashMap[(Int, List[Type]), Type]
-  private val glbResults = new mutable.HashMap[(Int, List[Type]), Type]
+  private val _lubResults = new mutable.HashMap[(Int, List[Type]), Type]
+  def lubResults = _lubResults
+
+  private val _glbResults = new mutable.HashMap[(Int, List[Type]), Type]
+  def glbResults = _glbResults
 
   def lub(ts: List[Type]): Type = ts match {
     case List() => NothingClass.tpe
@@ -7179,7 +7158,9 @@ trait Types extends api.Types { self: SymbolTable =>
   }
 
   /** The current indentation string for traces */
-  private var indent: String = ""
+  private var _indent: String = ""
+  def indent = _indent
+  def indent_=(value: String) = _indent = value
 
   /** Perform operation `p` on arguments `tp1`, `arg2` and print trace of computation. */
   protected def explain[T](op: String, p: (Type, T) => Boolean, tp1: Type, arg2: T): Boolean = {
@@ -7247,7 +7228,9 @@ trait Types extends api.Types { self: SymbolTable =>
    */
   final val maxTostringRecursions = 50
 
-  private var tostringRecursions = 0
+  private var _tostringRecursions = 0
+  def tostringRecursions = _tostringRecursions
+  def tostringRecursions_=(value: Int) = _tostringRecursions = value
 
   protected def typeToString(tpe: Type): String =
     if (tostringRecursions >= maxTostringRecursions) {
