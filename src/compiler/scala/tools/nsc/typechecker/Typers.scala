@@ -3217,11 +3217,6 @@ trait Typers extends Adaptations with Tags {
           def tryNamesDefaults: Tree = {
             val lencmp = compareLengths(args, formals)
 
-            def checkNotMacro() = {
-              if (treeInfo.isMacroApplication(fun))
-                tryTupleApply getOrElse duplErrorTree(NamedAndDefaultArgumentsNotSupportedForMacros(tree, fun))
-            }
-
             if (mt.isErroneous) duplErrTree
             else if (mode.inPatternMode) {
               // #2064
@@ -3240,19 +3235,16 @@ trait Typers extends Adaptations with Tags {
               else if (allArgsArePositional(argPos) && !isNamedApplyBlock(fun)) {
                 // if there's no re-ordering, and fun is not transformed, no need to transform
                 // more than an optimization, e.g. important in "synchronized { x = update-x }"
-                checkNotMacro()
-                doTypedApply(tree, fun, namelessArgs, mode, pt)
+                doTypedApply(tree, suppressMacroExpansion(fun), namelessArgs, mode, pt)
               } else {
-                checkNotMacro()
                 transformNamedApplication(Typer.this, mode, pt)(
-                                          treeCopy.Apply(tree, fun, namelessArgs), argPos)
+                                          treeCopy.Apply(tree, suppressMacroExpansion(fun), namelessArgs), argPos)
               }
             } else {
               // defaults are needed. they are added to the argument list in named style as
               // calls to the default getters. Example:
               //  foo[Int](a)()  ==>  foo[Int](a)(b = foo$qual.foo$default$2[Int](a))
-              checkNotMacro()
-              val fun1 = transformNamedApplication(Typer.this, mode, pt)(fun, x => x)
+              val fun1 = transformNamedApplication(Typer.this, mode, pt)(suppressMacroExpansion(fun), x => x)
               if (fun1.isErroneous) duplErrTree
               else {
                 assert(isNamedApplyBlock(fun1), fun1)
@@ -3291,7 +3283,53 @@ trait Typers extends Adaptations with Tags {
               isNamedApplyBlock(fun)) {       // fun was transformed to a named apply block =>
                                               // integrate this application into the block
             if (dyna.isApplyDynamicNamed(fun)) dyna.typedNamedApply(tree, fun, args, mode, pt)
-            else tryNamesDefaults
+            else {
+              val wasSuppressed = isMacroExpansionSuppressed(tree)
+              tryNamesDefaults match {
+                case result if !result.isErroneous && treeInfo.isMacroApplicationOrBlock(result) =>
+                  // macros.foo(x, y, w = 3)
+                  // {
+                  //   val qual$1: Macros.type = Test.this.macros
+                  //   val x$1 = 3
+                  //   val x$2 = foo$default$1
+                  //   qual$1.foo(x, y, x$2, x$1)
+                  // }
+                  def undoQualTransform(tree: Tree): Tree = tree match {
+                    case Block(qualDef +: stats1, expr @ treeInfo.Applied(core @ Select(qualRef, target), targs, argss))
+                    if qualDef.symbol.name.toString.startsWith("qual$") && qualDef.symbol == qualRef.symbol =>
+                      val ValDef(_, _, _, rhs) = qualDef
+                      Block(stats1, treeInfo.Applied(expr, treeCopy.Select(core, rhs, target), targs, argss))
+                    case _ => tree
+                  }
+                  def undoNamed(tree: Tree): Tree = tree match {
+                    case Block(stats, expr @ treeInfo.Applied(core, targs, argss)) =>
+                      val named = stats collect { case namDef @ ValDef(_, _, _, rhs) if rhs.symbol == null || !(rhs.symbol.name containsName nme.DEFAULT_GETTER_STRING) => (namDef.symbol, rhs) } toMap
+                      val stats1 = stats filterNot (stat => named contains stat.symbol)
+                      val argss1 = map2(argss, core.tpe.paramss)((args, params) => map2(args, params)({
+                        case (arg, param) if named contains arg.symbol => AssignOrNamedArg(Ident(param.name), named(arg.symbol))
+                        case (arg, _) => arg
+                      }))
+                      Block(stats1, treeInfo.Applied(expr, core, targs, argss1))
+                    case _ => tree
+                  }
+                  def undoDefaults(tree: Tree): Tree = tree match {
+                    case Block(stats, expr @ treeInfo.Applied(core, targs, argss)) =>
+                      val defaults = stats collect { case defDef @ ValDef(_, _, _, rhs) if rhs.symbol.name containsName nme.DEFAULT_GETTER_STRING => defDef.symbol }
+                      val stats1 = stats filterNot (stat => defaults contains stat.symbol)
+                      val argss1 = argss map (args => args filterNot (arg => defaults contains arg.symbol))
+                      Block(stats1, treeInfo.Applied(expr, core, targs, argss1))
+                    case _ => tree
+                  }
+                  val result1 =
+                    undoDefaults(undoNamed(undoQualTransform(result))) match {
+                      case Block(Nil, expr) => expr
+                      case Block(_, expr) => abort(result.toString)
+                      case expr => expr
+                    }
+                  if (wasSuppressed) result1 else unsuppressMacroExpansion(result1)
+                case result => result
+              }
+            }
           } else {
             val tparams = context.extractUndetparams()
             if (tparams.isEmpty) { // all type params are defined

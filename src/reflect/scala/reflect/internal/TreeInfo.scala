@@ -672,6 +672,27 @@ abstract class TreeInfo {
   object Applied {
     def apply(tree: Tree): Applied = new Applied(tree)
 
+    def apply(tree: Tree, core: Tree, targs: List[Tree], argss: List[List[Tree]]): Tree = {
+      def wrapInTargs(orig: Tree, core: Tree, targs: List[Tree]): Tree = targs match {
+        case _ :: _  =>
+          val ctor = if (core.isTerm) (treeCopy.TypeApply _) else (treeCopy.AppliedTypeTree _)
+          ctor(orig, core, targs)
+        case _ => core
+      }
+      def wrapInArgss(orig: Tree, callee: Tree, argss: List[List[Tree]]): Tree = argss match {
+        case argsHd :: argsTl =>
+          val (origHd, origTl) = orig match {
+            case Apply(fn, _) => (orig, fn)
+            case DependentTypeTree(fn, _) => (orig, fn)
+          }
+          val ctor = if (core.isTerm) (treeCopy.Apply _) else (treeCopy.DependentTypeTree _)
+          wrapInArgss(origTl, ctor(origHd, callee, argsHd), argsTl)
+        case _ => callee
+      }
+      val wrapped1 = wrapInTargs(treeInfo.dissectApplied(tree).callee, core, targs)
+      wrapInArgss(tree, wrapped1, argss)
+    }
+
     def unapply(applied: Applied): Option[(Tree, List[Tree], List[List[Tree]])] =
       Some((applied.core, applied.targs, applied.argss))
 
