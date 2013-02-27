@@ -7,7 +7,7 @@ import scala.reflect.runtime.ReflectionUtils
 import scala.tools.nsc.util.ScalaClassLoader
 import scala.tools.nsc.util.AbstractFileClassLoader
 
-trait MacroRuntimes extends JavaReflectionRuntimes with ScalaReflectionRuntimes {
+trait MacroRuntimes extends JavaReflectionRuntimes with ScalaReflectionRuntimes with JitRuntimes {
   self: scala.tools.nsc.typechecker.Analyzer =>
 
   import global._
@@ -47,15 +47,19 @@ trait MacroRuntimes extends JavaReflectionRuntimes with ScalaReflectionRuntimes 
    */
   type MacroRuntime = MacroArgs => Any
   class MacroRuntimeResolver(val macroDef: Symbol) extends JavaReflectionResolvers
-                                                      with ScalaReflectionResolvers {
+                                                      with ScalaReflectionResolvers
+                                                      with JitResolvers {
     val binding = loadMacroImplBinding(macroDef)
     val isBundle = binding.isBundle
     val className = binding.className
     val methName = binding.methName
+    val methSymbol = attachedMacroImpl(macroDef)
 
     def resolveRuntime(): MacroRuntime = {
       if (className == Predef_???.owner.javaClassName && methName == Predef_???.name.encoded) {
         args => throw new AbortMacroException(args.c.enclosingPosition, "macro implementation is missing")
+      } else if (settings.XmacroJit.value && currentRun.compiles(methSymbol)) {
+        resolveJitRuntime()
       } else {
         try {
           macroLogVerbose(s"resolving macro implementation as $className.$methName (isBundle = $isBundle)")

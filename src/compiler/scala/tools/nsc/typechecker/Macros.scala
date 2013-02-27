@@ -241,7 +241,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
 
   def bindMacroImpl(macroDef: Symbol, macroImplRef: Tree): Unit = {
     val pickle = MacroImplBinding.pickle(macroImplRef)
-    macroDef withAnnotation AnnotationInfo(MacroImplAnnotation.tpe, List(pickle), Nil)
+    attachMacroImpl(macroDef withAnnotation AnnotationInfo(MacroImplAnnotation.tpe, List(pickle), Nil), macroImplRef.symbol)
   }
 
   def loadMacroImplBinding(macroDef: Symbol): MacroImplBinding = {
@@ -855,9 +855,15 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
         Cancel(typer.infer.setError(expandee))
       }
       else try {
-        val runtime = macroRuntime(expandee.symbol)
-        if (runtime != null) macroExpandWithRuntime(typer, expandee, runtime)
-        else macroExpandWithoutRuntime(typer, expandee)
+        // TODO: this is a bug waiting to happen
+        // we should remove this check, because it's already there in `macroExpandWithRuntime`
+        if (typer.context.macrosEnabled) {
+          val runtime = macroRuntime(expandee.symbol)
+          if (runtime != null) macroExpandWithRuntime(typer, expandee, runtime)
+          else macroExpandWithoutRuntime(typer, expandee)
+        } else {
+          Delay(expandee)
+        }
       } catch {
         case typer.TyperErrorGen.MacroExpansionException => Failure(expandee)
       }

@@ -59,6 +59,8 @@ trait Importers extends api.Importers { to: SymbolTable =>
 
     // ============== SYMBOLS ==============
 
+    def redefineExistingModulesWithImportedOnes: Boolean = false
+
     protected def recreatedSymbolCompleter(my: to.Symbol, their: from.Symbol) = {
       // we lock the symbol that is imported for a very short period of time
       // i.e. only for when type parameters of the symbol are being imported
@@ -151,6 +153,7 @@ trait Importers extends api.Importers { to: SymbolTable =>
         else if (their.isRoot)
           rootMirror.RootClass // !!! replace with actual mirror when we move importers to the mirror
         else {
+          val isModule = their.isModule
           val isModuleClass = their.isModuleClass
           val isTparam = their.isTypeParameter && their.paramPos >= 0
           val isOverloaded = their.isOverloaded
@@ -162,7 +165,7 @@ trait Importers extends api.Importers { to: SymbolTable =>
           val myname = importName(their.name)
           val myowner = importSymbol(their.owner)
           val myscope = if (theirscope != from.NoType && !(myowner hasFlag Flags.LOCKED)) myowner.info else NoType
-          val myexisting = {
+          var myexisting = {
             if (isModuleClass) importSymbol(their.sourceModule).moduleClass
             else if (isTparam) (if (myowner hasFlag Flags.LOCKED) NoSymbol else myowner.typeParams(their.paramPos))
             else if (isOverloaded) myowner.newOverloaded(myowner.thisType, their.alternatives map importSymbol)
@@ -184,6 +187,19 @@ trait Importers extends api.Importers { to: SymbolTable =>
               val myexisting = if (myscope != NoType) myscope.decl(myname) else NoSymbol
               if (myexisting.isOverloaded) disambiguate(myexisting)
               else myexisting
+            }
+          }
+
+          // We should allow redefine all module symbols
+          // If sym in current scope has other source file as imported symbol we should remove it from current scope
+          if (redefineExistingModulesWithImportedOnes && isModule && myexisting != NoSymbol) {
+            if (myexisting.associatedFile != their.associatedFile) {
+              myowner.info.decls.unlink(myexisting)
+              def mycompanion = myexisting.companionClass
+              def theircompanion = their.companionClass
+              if (mycompanion != NoSymbol && theircompanion == from.NoSymbol)
+                mycompanion.owner.info.decls.unlink(mycompanion)
+              myexisting = NoSymbol
             }
           }
 
