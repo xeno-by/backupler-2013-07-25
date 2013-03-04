@@ -693,6 +693,7 @@ trait StdNames {
     val toString_ : NameType           = "toString"
     val toTypeConstructor: NameType    = "toTypeConstructor"
     val tpe : NameType                 = "tpe"
+    val transform : NameType           = "transform"
     val tree : NameType                = "tree"
     val true_ : NameType               = "true"
     val typedProductIterator: NameType = "typedProductIterator"

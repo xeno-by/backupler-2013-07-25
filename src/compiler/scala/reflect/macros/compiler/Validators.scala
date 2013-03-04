@@ -153,6 +153,7 @@ trait Validators {
       val implReturnType =
         if (macroDef.isTermMacro) sigma(increaseMetalevel(ctxPrefix, macroDefRet))
         else if (macroDef.isTypeMacro) typeRef(ctxPrefix, TreesTreeType, Nil)
+        else if (macroDef.isAnnotationMacro) typeRef(ctxPrefix, TreesTreeType, Nil)
         else global.abort(s"unknown macro flavor: $macroDef")
 
       object SigmaTypeMap extends TypeMap {

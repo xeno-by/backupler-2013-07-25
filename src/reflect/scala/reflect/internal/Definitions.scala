@@ -551,6 +551,7 @@ trait Definitions extends api.StandardDefinitions {
          def MacroContextExprClass        = MacroContextClass.map(sym => getTypeMember(sym, tpnme.Expr))
          def MacroContextWeakTypeTagClass = MacroContextClass.map(sym => getTypeMember(sym, tpnme.WeakTypeTag))
          def MacroContextTreeType         = MacroContextClass.map(sym => getTypeMember(sym, tpnme.Tree))
+    lazy val AnnotationMacroContextClass  = getClassIfDefined("scala.reflect.macros.AnnotationContext") // defined in scala-reflect.jar, so we need to be careful
     lazy val MacroImplAnnotation          = requiredClass[scala.reflect.macros.internal.macroImpl]
 
     lazy val StringContextClass           = requiredClass[scala.StringContext]
@@ -904,6 +905,7 @@ trait Definitions extends api.StandardDefinitions {
     lazy val AnnotationClass            = requiredClass[scala.annotation.Annotation]
     lazy val ClassfileAnnotationClass   = requiredClass[scala.annotation.ClassfileAnnotation]
     lazy val StaticAnnotationClass      = requiredClass[scala.annotation.StaticAnnotation]
+    lazy val MacroAnnotationClass       = requiredClass[scala.annotation.MacroAnnotation]
 
     // Annotations
     lazy val BridgeClass                = requiredClass[scala.annotation.bridge]
@@ -924,6 +926,7 @@ trait Definitions extends api.StandardDefinitions {
     lazy val DeprecatedNameAttr         = requiredClass[scala.deprecatedName]
     lazy val DeprecatedInheritanceAttr  = requiredClass[scala.deprecatedInheritance]
     lazy val DeprecatedOverridingAttr   = requiredClass[scala.deprecatedOverriding]
+    lazy val InheritedAttr              = requiredClass[java.lang.annotation.Inherited]
     lazy val NativeAttr                 = requiredClass[scala.native]
     lazy val RemoteAttr                 = requiredClass[scala.remote]
     lazy val ScalaInlineClass           = requiredClass[scala.inline]

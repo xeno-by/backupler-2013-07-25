@@ -14,8 +14,9 @@ trait Resolvers {
   import gen._
 
   /** Determines the type of context implied by the macro def.
+   *  Currently the logic is simple: macro annotation => AnnotationContext, otherwise Context
    */
-  val ctxTpe = MacroContextClass.tpe
+  val ctxTpe = if (macroDef.isAnnotationMacro) AnnotationMacroContextClass.tpe else MacroContextClass.tpe
 
   /** Resolves a macro impl reference provided in the right-hand side of the given macro definition.
    *
