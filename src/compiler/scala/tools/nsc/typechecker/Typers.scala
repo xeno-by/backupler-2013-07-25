@@ -1225,7 +1225,7 @@ trait Typers extends Adaptations with Tags {
             fallBack
           }
       }
-        val tree1 = if (mode.inExprModeButNot(FUNmode) && treeInfo.isMacroApplication(tree)) macroExpandApply(this, tree, mode, pt) else tree
+        val tree1 = if ((mode.inExprModeButNot(FUNmode) || mode.inPatternNotFunMode) && treeInfo.isMacroApplication(tree)) macroExpandApply(this, tree, mode, pt) else tree
         if (tree == tree1) vanillaAdapt(tree1) else tree1
     }
     }
@@ -3355,7 +3355,9 @@ trait Typers extends Adaptations with Tags {
           // @H change to setError(treeCopy.Apply(tree, fun, args))
 
         case otpe if mode.inPatternMode && unapplyMember(otpe).exists =>
-          doTypedUnapply(tree, fun0, fun, args, mode, pt)
+          val unapply = unapplyMember(otpe)
+          if (definitions.isUntypedMacro(unapply)) treeCopy.Apply(tree, gen.mkAttributedSelect(fun, unapply), args) setType UntypedClass.tpe
+          else doTypedUnapply(tree, fun0, fun, args, mode, pt)
 
         case _ =>
           if (treeInfo.isMacroApplication(tree)) duplErrorTree(MacroTooManyArgumentListsError(tree, fun.symbol))
