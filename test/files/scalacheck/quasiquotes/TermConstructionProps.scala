@@ -250,6 +250,32 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
     q"{ ..$trees; $tree }" ≈ Block(trees, tree)
   }
 
+  property("splice type name into annotation") = test {
+    val name = TypeName("annot")
+    val res = q"@$name def foo"
+    assert(res.mods.annotations ≈ List(Apply(Select(New(Ident(name)), nme.CONSTRUCTOR), List())), showRaw(res))
+  }
+
+  property("splice ident into annotation") = test {
+    val ident = Ident(TypeName("annot"))
+    val res = q"@$ident def foo"
+    assert(res.mods.annotations ≈ List(Apply(Select(New(ident), nme.CONSTRUCTOR), List())), showRaw(res))
+  }
+
+  property("splice idents into annotation") = test {
+    val idents = List(Ident(TypeName("annot1")), Ident(TypeName("annot2")))
+    val res = q"@..$idents def foo"
+    assert(res.mods.annotations ≈ idents.map { ident => Apply(Select(New(ident), nme.CONSTRUCTOR), List()) }, showRaw(res))
+  }
+
+  property("splice constructor calls into annotation") = test {
+    val ctorcalls = List(
+      Apply(Select(New(Ident(TypeName("annot1"))), nme.CONSTRUCTOR), List()),
+      Apply(Select(New(Ident(TypeName("annot2"))), nme.CONSTRUCTOR), List()))
+    val res = q"@..$ctorcalls def foo"
+    assert(res.mods.annotations ≈ ctorcalls, showRaw(res))
+  }
+
   // TODO: this test needs to be implemented
   // property("splice valdef into class param") = forAll { (name: TypeName, valdef: ValDef) =>
   //   q"class $name($valdef)" ≈ ...

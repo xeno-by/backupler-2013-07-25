@@ -117,9 +117,11 @@ trait Reifiers { self: Quasiquotes =>
 
     override def reifyBasicTree(tree: Tree): Tree = tree match {
       case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< treeType => tree
+      // TODO: This special case doesn't allow splicing of Iterable[Iterable[T]] where T is liftable
       case Apply(f, List(Placeholder(CorrespondsTo(argss, tpe)))) if tpe <:< iterableIterableTreeType =>
         val f1 = reifyTree(f)
         q"$argss.foldLeft[$u.Tree]($f1) { $u.Apply(_, _) }"
+      // TODO: make sure that this case doesn't require tpe checks
       case Block(stats, p @ Placeholder(CorrespondsTo(tree, tpe))) =>
         mirrorBuildCall("Block", reifyList(stats :+ p))
       case Placeholder(name) if placeholders(name)._2 > 0 =>
@@ -139,14 +141,34 @@ trait Reifiers { self: Quasiquotes =>
         super.reifyName(name)
     }
 
+    case class AnnotationPlaceholder(tree: Tree, tpe: Type, args: List[Tree])
+
     override def reifyList(xs: List[Any]): Tree =
       Select(
         mkList(xs.map {
           case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< iterableTreeType => tree
           case List(Placeholder(CorrespondsTo(tree, tpe))) if tpe <:< iterableIterableTreeType => tree
+          case AnnotationPlaceholder(tree, tpe, args) =>
+            if (tpe <:< iterableIterableType)
+              c.abort(tree.pos, "Can't splice trees with '...' cardinality in annotation position.")
+            else if(tpe <:< iterableType) {
+              val x: TermName = c.freshName()
+              q"$tree.map { $x => $u.build.annotationRepr($x) }"
+            } else {
+              mkList(List(q"$u.build.annotationRepr($tree)"))
+            }
           case x @ _ => mkList(List(reify(x)))
         }),
         nme.flatten)
+
+    override def reifyModifiers(m: Modifiers): Tree = {
+      val annots = reifyList(m.annotations.map {
+        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if !(tpe <:< nameType) =>
+          AnnotationPlaceholder(tree, tpe, args)
+        case other => other
+      })
+      mirrorFactoryCall(nme.Modifiers, mirrorBuildCall(nme.flagsFromBits, reify(m.flags)), reify(m.privateWithin), annots)
+    }
   }
 
   class UnapplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
@@ -222,6 +244,7 @@ trait Reifiers { self: Quasiquotes =>
     lazy val typeDefType = memberType(universeType, tpnme.TypeDef)
     lazy val liftableType = LiftableClass.toType
     lazy val iterableType = appliedType(IterableClass.toType, List(AnyTpe))
+    lazy val iterableIterableType = appliedType(IterableClass.toType, List(iterableType))
     lazy val iterableTreeType = appliedType(iterableType, List(treeType))
     lazy val iterableIterableTreeType = appliedType(iterableType, List(iterableTreeType))
     lazy val optionTreeType = appliedType(OptionClass.toType, List(treeType))

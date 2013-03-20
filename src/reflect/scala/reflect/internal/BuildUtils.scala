@@ -65,6 +65,12 @@ trait BuildUtils { self: SymbolTable =>
 
     def setSymbol[T <: Tree](tree: T, sym: Symbol): T = { tree.setSymbol(sym); tree }
 
+    def annotationRepr(tree: Tree): Tree = tree match {
+      case ident: Ident => Apply(self.Select(New(ident), nme.CONSTRUCTOR: TermName), List())
+      case call @ Apply(Select(New(ident: Ident), nme.CONSTRUCTOR), _) => call
+      case _ => throw new IllegalArgumentException("Tree ${showRaw(tree)} isn't a correct representation of annotation.")
+    }
+
     object FlagsAsBits extends FlagsAsBitsExtractor {
       def unapply(flags: Long): Option[Long] = Some(flags)
     }
