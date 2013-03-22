@@ -553,7 +553,8 @@ trait Trees extends api.Trees { self: SymbolTable =>
         case t => t
       }
 
-      orig = followOriginal(tree); setPos(tree.pos)
+      orig = followOriginal(tree)
+      if (tree != null) setPos(tree.pos)
       this
     }
 
