@@ -166,7 +166,7 @@ trait Reifiers { self: Quasiquotes =>
      *     grouped together; element is considered to be a placeholder if it's
      *     in the domain of the fill function;
      *  2. fold the groups into a sequence of lists added together with ++ using
-     *     fill reification for placeholders nad fallback reification for non-placeholders.
+     *     fill reification for placeholders and fallback reification for non-placeholders.
      */
     def reifyListGeneric(xs: List[Any])(fill: PartialFunction[Any, Tree])(fallback: List[Any] => Tree): Tree =
       xs match {
