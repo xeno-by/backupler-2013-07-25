@@ -149,14 +149,15 @@ trait Reifiers { self: Quasiquotes =>
       case (ll, el) => ll :+ List(el)
     }
 
+    def isValidListHole(x: Any) = x match {
+      case Placeholder(CorrespondsTo(_, tpe)) if tpe <:< iterableTreeType => true
+      case List(Placeholder(CorrespondsTo(_, tpe))) if tpe <:< iterableIterableTreeType => true
+      case _ => false
+    }
+
     def reifyListGeneric(xs: List[Any])(reifyGroup: List[Any] => Tree): Tree = xs match {
       case Nil => mkList(Nil)
       case _ =>
-        def isValidListHole(x: Any) = x match {
-          case Placeholder(CorrespondsTo(_, tpe)) if tpe <:< iterableTreeType => true
-          case List(Placeholder(CorrespondsTo(_, tpe))) if tpe <:< iterableIterableTreeType => true
-          case _ => false
-        }
         val head :: tail = group(xs) { (a, b) => !isValidListHole(a) && !isValidListHole(b) }
         tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
     }
