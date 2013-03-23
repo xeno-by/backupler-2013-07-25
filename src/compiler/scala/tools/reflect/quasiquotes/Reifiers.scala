@@ -124,7 +124,6 @@ trait Reifiers { self: Quasiquotes =>
       case Apply(f, List(Placeholder(CorrespondsTo(argss, tpe)))) if tpe <:< iterableIterableTreeType =>
         val f1 = reifyTree(f)
         q"$argss.foldLeft[$u.Tree]($f1) { $u.Apply(_, _) }"
-      // TODO: make sure that this case doesn't require tpe checks
       case Block(stats, p @ Placeholder(CorrespondsTo(tree, tpe))) =>
         mirrorBuildCall("Block", reifyList(stats :+ p))
       case Placeholder(name) if placeholders(name)._2 > 0 =>
@@ -155,11 +154,12 @@ trait Reifiers { self: Quasiquotes =>
     def reifyListGeneric(xs: List[Any])(reifyGroup: List[Any] => Tree): Tree = xs match {
       case Nil => mkList(Nil)
       case _ =>
-        val head :: tail = group(xs) {
-          case (_, Placeholder(CorrespondsTo(_, tpe))) if tpe <:< iterableType => false
-          case (Placeholder(CorrespondsTo(_, tpe)), _) if tpe <:< iterableType => false
-          case _ => true
+        def isValidListHole(x: Any) = x match {
+          case Placeholder(CorrespondsTo(_, tpe)) if tpe <:< iterableTreeType => true
+          case List(Placeholder(CorrespondsTo(_, tpe))) if tpe <:< iterableIterableTreeType => true
+          case _ => false
         }
+        val head :: tail = group(xs) { (a, b) => !isValidListHole(a) && !isValidListHole(b) }
         tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
     }
 
