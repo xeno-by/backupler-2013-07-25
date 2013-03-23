@@ -168,11 +168,11 @@ trait Reifiers { self: Quasiquotes =>
      *  2. fold the groups into a sequence of lists added together with ++ using
      *     fill reification for placeholders and fallback reification for non-placeholders.
      */
-    def reifyListGeneric(xs: List[Any])(fill: PartialFunction[Any, Tree])(fallback: List[Any] => Tree): Tree =
+    def reifyListGeneric[T](xs: List[T])(fill: PartialFunction[T, Tree])(fallback: List[T] => Tree): Tree =
       xs match {
         case Nil => mkList(Nil)
         case _ =>
-          def reifyGroup(group: List[Any]): Tree = group match {
+          def reifyGroup(group: List[T]): Tree = group match {
             case List(elem) if fill.isDefinedAt(elem) => fill(elem)
             case elems => fallback(elems)
           }
@@ -180,7 +180,7 @@ trait Reifiers { self: Quasiquotes =>
           tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
       }
 
-    /** Reifies the list filling ..$x and ...$y placeholders when they are put
+    /** Reifies arbitrary list filling ..$x and ...$y placeholders when they are put
      *  in the correct position. Fallbacks to super.reifyList for non-placeholders.
      */
     override def reifyList(xs: List[Any]): Tree = reifyListGeneric(xs) {
@@ -190,24 +190,26 @@ trait Reifiers { self: Quasiquotes =>
       super.reifyList(_)
     }
 
-    /** Reifies modifiers with custom list reifier for the annotations. It's required
-     *  because they have different shape and additional $u.build.annotationRepr wrapping
-     *  is needed to ensure that user won't splice a non-constructor call in this position.
+    /** Custom list reifier for annotations. It's required because they have different shape
+     *  and additional $u.build.annotationRepr wrapping is needed to ensure that user won't
+     *  splice a non-constructor call in this position.
      */
-    override def reifyModifiers(m: Modifiers) = {
-      val annots = reifyListGeneric(m.annotations) {
-        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< iterableTreeType =>
-          val x: TermName = c.freshName()
-          q"$tree.map { $x => $u.build.annotationRepr($x) }"
-      } { elems =>
-        mkList(elems.map {
-          case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< treeType =>
-            q"$u.build.annotationRepr($tree)"
-          case other => reify(other)
-        })
-      }
-      mirrorFactoryCall(nme.Modifiers, mirrorBuildCall(nme.flagsFromBits, reify(m.flags)), reify(m.privateWithin), annots)
+    def reifyAnnotsList(annots: List[Tree]) = reifyListGeneric(annots) {
+      case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< iterableTreeType =>
+        val x: TermName = c.freshName()
+        q"$tree.map { $x => $u.build.annotationRepr($x) }"
+    } { elems =>
+      mkList(elems.map {
+        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< treeType =>
+          q"$u.build.annotationRepr($tree)"
+        case other => reify(other)
+      })
     }
+
+    /** Reifies modifiers with custom list reifier for the annotations.
+     */
+    override def reifyModifiers(m: Modifiers) =
+      mirrorFactoryCall(nme.Modifiers, mirrorBuildCall(nme.flagsFromBits, reify(m.flags)), reify(m.privateWithin), reifyAnnotsList(m.annotations))
   }
 
   class UnapplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
