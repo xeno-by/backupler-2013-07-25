@@ -143,37 +143,64 @@ trait Reifiers { self: Quasiquotes =>
         super.reifyName(name)
     }
 
+    /** Splits list into a list of groups where subsequent elements are condidered
+     *  similar by the corresponding function.
+     *
+     *  For example:
+     *
+     *  > group(List(1, 1, 0, 0, 1, 0)) { _ == _ }
+     *  List(List(1, 1), List(0, 0), List(1), List(0))
+     *
+     */
     def group[T](lst: List[T])(similar: (T, T) => Boolean) = lst.foldLeft[List[List[T]]](List()) {
       case (Nil, el) => List(List(el))
       case (ll :+ (last @ (lastinit :+ lastel)), el) if similar(lastel, el) => ll :+ (last :+ el)
       case (ll, el) => ll :+ List(el)
     }
 
-    def isValidListHole(x: Any) = x match {
-      case Placeholder(CorrespondsTo(_, tpe)) if tpe <:< iterableTreeType => true
-      case List(Placeholder(CorrespondsTo(_, tpe))) if tpe <:< iterableIterableTreeType => true
-      case _ => false
-    }
+    /** Reifies list filling all the valid placeholders.
+     *
+     *  Reification of non-trivial list is done in two steps:
+     *  1. split the list into groups where every placeholder is always
+     *     put in a group of it's own and all subsquent non-placeholders are
+     *     grouped together; element is considered to be a placeholder if it's
+     *     in the domain of the fill function;
+     *  2. fold the groups into a sequence of lists added together with ++ using
+     *     fill reification for placeholders nad fallback reification for non-placeholders.
+     */
+    def reifyListGeneric(xs: List[Any])(fill: PartialFunction[Any, Tree])(fallback: List[Any] => Tree): Tree =
+      xs match {
+        case Nil => mkList(Nil)
+        case _ =>
+          def reifyGroup(group: List[Any]): Tree = group match {
+            case List(elem) if fill.isDefinedAt(elem) => fill(elem)
+            case elems => fallback(elems)
+          }
+          val head :: tail = group(xs) { (a, b) => !fill.isDefinedAt(a) && !fill.isDefinedAt(b) }
+          tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
+      }
 
-    def reifyListGeneric(xs: List[Any])(reifyGroup: List[Any] => Tree): Tree = xs match {
-      case Nil => mkList(Nil)
-      case _ =>
-        val head :: tail = group(xs) { (a, b) => !isValidListHole(a) && !isValidListHole(b) }
-        tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
-    }
-
+    /** Reifies the list filling ..$x and ...$y placeholders when they are put
+     *  in the correct position. Fallbacks to super.reifyList for non-placeholders.
+     */
     override def reifyList(xs: List[Any]): Tree = reifyListGeneric(xs) {
-      case List(Placeholder(CorrespondsTo(tree, tpe))) if tpe <:< iterableTreeType => tree
-      case List(List(Placeholder(CorrespondsTo(tree, tpe)))) if tpe <:< iterableIterableTreeType => tree
-      case elems => super.reifyList(elems)
+      case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< iterableTreeType => tree
+      case List(Placeholder(CorrespondsTo(tree, tpe))) if tpe <:< iterableIterableTreeType => tree
+    } {
+      super.reifyList(_)
     }
 
+    /** Reifies modifiers with custom list reifier for the annotations. It's required
+     *  because they have different shape and additional $u.build.annotationRepr wrapping
+     *  is needed to ensure that user won't splice a non-constructor call in this position.
+     */
     override def reifyModifiers(m: Modifiers) = {
       val annots = reifyListGeneric(m.annotations) {
-        case List(Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args)) if tpe <:< iterableTreeType =>
+        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< iterableTreeType =>
           val x: TermName = c.freshName()
           q"$tree.map { $x => $u.build.annotationRepr($x) }"
-        case elems => mkList(elems.map {
+      } { elems =>
+        mkList(elems.map {
           case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< treeType =>
             q"$u.build.annotationRepr($tree)"
           case other => reify(other)
