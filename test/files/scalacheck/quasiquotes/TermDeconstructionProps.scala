@@ -28,9 +28,15 @@ object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction
     y1 ≈ x1 && y2 ≈ x2 && ys ≈ List(x3)
   }
 
-  property ("f(...xss)") = forAll { (x1: Tree, x2: Tree) =>
+  property("f(...xss)") = forAll { (x1: Tree, x2: Tree) =>
     val q"f(...$argss)" = q"f($x1)($x2)"
     argss ≈ List(List(x1), List(x2))
   }
+
+  // property("@$annot def foo") = forAll { (annotName: TypeName) =>
+  //   val q"@$annot def foo" = q"@$annotName def foo"
+  //   println(showRaw(annot))
+  //   annot ≈ Apply(Select(New(Ident(annotName)), nme.CONSTRUCTOR), List())
+  // }
 
 }
