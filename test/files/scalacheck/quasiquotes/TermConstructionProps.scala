@@ -250,6 +250,12 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
     q"{ ..$trees; $tree }" ≈ Block(trees, tree)
   }
 
+  def annot(name: String, args: List[Tree] = Nil) = Apply(Select(New(Ident(TypeName(name))), nme.CONSTRUCTOR), args)
+
+  def assertSameAnnots(def1: DefDef, def2: DefDef) =
+    assert(def1.mods.annotations ≈ def2.mods.annotations,
+           s"${def1.mods.annotations} =/= ${def2.mods.annotations}")
+
   property("splice type name into annotation") = test {
     val name = TypeName("annot")
     val res = q"@$name def foo"
@@ -267,8 +273,6 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
     val res = q"@..$idents def foo"
     assert(res.mods.annotations ≈ idents.map { ident => Apply(Select(New(ident), nme.CONSTRUCTOR), List()) }, showRaw(res))
   }
-
-  def annot(name: String) = Apply(Select(New(Ident(TypeName(name))), nme.CONSTRUCTOR), List())
 
   property("splice constructor calls into annotation") = test {
     val ctorcalls = List(annot("a1"), annot("a2"))
@@ -288,6 +292,28 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
     val annots = List(annot("a2"), annot("a3"))
     val res = q"@$annot1 @..$annots def foo"
     assert(res.mods.annotations ≈ (annot1 :: annots))
+  }
+
+  property("splice annotations with arguments (1)") = test {
+    val a = annot("a", List(q"x"))
+    assertSameAnnots(q"@$a def foo", q"@a(x) def foo")
+  }
+
+  property("splice annotations with arguments (2)") = test {
+    val a = TypeName("a")
+    assertSameAnnots(q"@$a(x) def foo", q"@a(x) def foo")
+  }
+
+  property("splice annotations with arguments (3") = test {
+    val a = Ident(TypeName("a"))
+    assertSameAnnots(q"@$a(x) def foo", q"@a(x) def foo")
+  }
+
+  property("can't splice annotations with arguments specificed twice") = test {
+    val a = annot("a", List(q"x"))
+    assertThrows[IllegalArgumentException] {
+      q"@$a(y) def foo"
+    }
   }
 
   // TODO: this test needs to be implemented

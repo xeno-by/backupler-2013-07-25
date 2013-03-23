@@ -65,9 +65,12 @@ trait BuildUtils { self: SymbolTable =>
 
     def setSymbol[T <: Tree](tree: T, sym: Symbol): T = { tree.setSymbol(sym); tree }
 
-    def annotationRepr(tree: Tree): Tree = tree match {
-      case ident: Ident => Apply(self.Select(New(ident), nme.CONSTRUCTOR: TermName), List())
-      case call @ Apply(Select(New(ident: Ident), nme.CONSTRUCTOR), _) => call
+    def annotationRepr(tree: Tree, args: List[Tree]): Tree = tree match {
+      case ident: Ident => Apply(self.Select(New(ident), nme.CONSTRUCTOR: TermName), args)
+      case call @ Apply(Select(New(ident: Ident), nme.CONSTRUCTOR), _) =>
+        if(args.nonEmpty)
+          throw new IllegalArgumentException("Can't splice annotation that already contains args with extra args.")
+        call
       case _ => throw new IllegalArgumentException("Tree ${showRaw(tree)} isn't a correct representation of annotation.")
     }
 

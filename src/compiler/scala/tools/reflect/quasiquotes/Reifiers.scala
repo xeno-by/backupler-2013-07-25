@@ -195,13 +195,15 @@ trait Reifiers { self: Quasiquotes =>
      *  splice a non-constructor call in this position.
      */
     def reifyAnnotsList(annots: List[Tree]) = reifyListGeneric(annots) {
-      case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< iterableTreeType =>
+      case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args0) if tpe <:< iterableTreeType =>
         val x: TermName = c.freshName()
-        q"$tree.map { $x => $u.build.annotationRepr($x) }"
+        val args = args0.map(reify)
+        q"$tree.map { $x => $u.build.annotationRepr($x, List(..$args)) }"
     } { elems =>
       mkList(elems.map {
-        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args) if tpe <:< treeType =>
-          q"$u.build.annotationRepr($tree)"
+        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args0) if tpe <:< treeType =>
+          val args = args0.map(reify)
+          q"$u.build.annotationRepr($tree, List(..$args))"
         case other => reify(other)
       })
     }
