@@ -268,12 +268,26 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
     assert(res.mods.annotations ≈ idents.map { ident => Apply(Select(New(ident), nme.CONSTRUCTOR), List()) }, showRaw(res))
   }
 
+  def annot(name: String) = Apply(Select(New(Ident(TypeName(name))), nme.CONSTRUCTOR), List())
+
   property("splice constructor calls into annotation") = test {
-    val ctorcalls = List(
-      Apply(Select(New(Ident(TypeName("annot1"))), nme.CONSTRUCTOR), List()),
-      Apply(Select(New(Ident(TypeName("annot2"))), nme.CONSTRUCTOR), List()))
+    val ctorcalls = List(annot("a1"), annot("a2"))
     val res = q"@..$ctorcalls def foo"
     assert(res.mods.annotations ≈ ctorcalls, showRaw(res))
+  }
+
+  property("splice multiple annotations (1)") = test {
+    val annot1 = annot("a1")
+    val annot2 = annot("a2")
+    val res = q"@$annot1 @$annot2 def foo"
+    assert(res.mods.annotations ≈ List(annot1, annot2))
+  }
+
+  property("splice multiple annotations (2)") = test {
+    val annot1 = annot("a1")
+    val annots = List(annot("a2"), annot("a3"))
+    val res = q"@$annot1 @..$annots def foo"
+    assert(res.mods.annotations ≈ (annot1 :: annots))
   }
 
   // TODO: this test needs to be implemented
