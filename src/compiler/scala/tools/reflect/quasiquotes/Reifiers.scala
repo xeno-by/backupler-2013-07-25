@@ -143,8 +143,6 @@ trait Reifiers { self: Quasiquotes =>
         super.reifyName(name)
     }
 
-    case class AnnotationPlaceholder(tree: Tree, tpe: Type, args: List[Tree])
-
     def group[T](lst: List[T])(similar: (T, T) => Boolean) = lst.foldLeft[List[List[T]]](List()) {
       case (Nil, el) => List(List(el))
       case (ll :+ (last @ (lastinit :+ lastel)), el) if similar(lastel, el) => ll :+ (last :+ el)
