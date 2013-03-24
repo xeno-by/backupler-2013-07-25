@@ -168,13 +168,13 @@ trait Reifiers { self: Quasiquotes =>
      *  2. fold the groups into a sequence of lists added together with ++ using
      *     fill reification for placeholders and fallback reification for non-placeholders.
      */
-    def reifyListGeneric[T](xs: List[T])(fill: PartialFunction[T, Tree])(fallback: List[T] => Tree): Tree =
+    def reifyListGeneric[T](xs: List[T])(fill: PartialFunction[T, Tree])(fallback: T => Tree): Tree =
       xs match {
         case Nil => mkList(Nil)
         case _ =>
           def reifyGroup(group: List[T]): Tree = group match {
             case List(elem) if fill.isDefinedAt(elem) => fill(elem)
-            case elems => fallback(elems)
+            case elems => mkList(elems.map(fallback))
           }
           val head :: tail = group(xs) { (a, b) => !fill.isDefinedAt(a) && !fill.isDefinedAt(b) }
           tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
@@ -187,7 +187,7 @@ trait Reifiers { self: Quasiquotes =>
       case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< iterableTreeType => tree
       case List(Placeholder(CorrespondsTo(tree, tpe))) if tpe <:< iterableIterableTreeType => tree
     } {
-      super.reifyList(_)
+      reify(_)
     }
 
     /** Custom list reifier for annotations. It's required because they have different shape
@@ -199,13 +199,11 @@ trait Reifiers { self: Quasiquotes =>
         val x: TermName = c.freshName()
         val args = args0.map(reify)
         q"$tree.map { $x => $u.build.annotationRepr($x, List(..$args)) }"
-    } { elems =>
-      mkList(elems.map {
-        case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args0) if tpe <:< treeType =>
-          val args = args0.map(reify)
-          q"$u.build.annotationRepr($tree, List(..$args))"
-        case other => reify(other)
-      })
+    } {
+      case Apply(Select(New(Placeholder(CorrespondsTo(tree, tpe))), nme.CONSTRUCTOR), args0) if tpe <:< treeType =>
+        val args = args0.map(reify)
+        q"$u.build.annotationRepr($tree, List(..$args))"
+      case other => reify(other)
     }
 
     /** Reifies modifiers with custom list reifier for the annotations.
