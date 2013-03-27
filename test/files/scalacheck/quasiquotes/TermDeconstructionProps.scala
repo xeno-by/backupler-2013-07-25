@@ -6,7 +6,11 @@ import Arbitrary._
 import scala.reflect.runtime.universe._
 import Flag._
 
-object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction") {
+object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction")
+                                  with ApplicationDeconstructionProps
+                                  with AnnotationDeconstructionProps
+
+trait ApplicationDeconstructionProps { self: TermDeconstructionProps.type =>
 
   property("f(x)") = forAll { (x: Tree) =>
     val q"f($x1)" = q"f($x)"
@@ -32,11 +36,13 @@ object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction
     val q"f(...$argss)" = q"f($x1)($x2)"
     argss ≈ List(List(x1), List(x2))
   }
+}
 
-  // property("@$annot def foo") = forAll { (annotName: TypeName) =>
-  //   val q"@$annot def foo" = q"@$annotName def foo"
-  //   println(showRaw(annot))
-  //   annot ≈ Apply(Select(New(Ident(annotName)), nme.CONSTRUCTOR), List())
-  // }
+trait AnnotationDeconstructionProps { self: TermDeconstructionProps.type =>
 
+  property("@$annot def foo") = forAll { (annotName: TypeName) =>
+    val q"@$annot def foo" = q"@$annotName def foo"
+    println(showRaw(annot))
+    annot ≈ Apply(Select(New(Ident(annotName)), nme.CONSTRUCTOR), List())
+  }
 }

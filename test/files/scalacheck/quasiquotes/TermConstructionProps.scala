@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
 import Flag._
 
 object TermConstructionProps extends QuasiquoteProperties("term construction")
-                                with AnnotationProps {
+                                with AnnotationConstructionProps {
 
   val anyRef = Select(Ident(TermName("scala")), TypeName("AnyRef"))
 
@@ -267,7 +267,7 @@ object TermConstructionProps extends QuasiquoteProperties("term construction")
   // }
 }
 
-trait AnnotationProps { self: TermConstructionProps.type =>
+trait AnnotationConstructionProps { self: TermConstructionProps.type =>
 
   def annot(name: String): Tree = annot(TypeName(name), Nil)
   def annot(name: TypeName): Tree = annot(name, Nil)
