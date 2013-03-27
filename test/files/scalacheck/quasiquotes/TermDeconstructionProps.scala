@@ -38,11 +38,30 @@ trait ApplicationDeconstructionProps { self: TermDeconstructionProps.type =>
   }
 }
 
-trait AnnotationDeconstructionProps { self: TermDeconstructionProps.type =>
+trait AnnotationDeconstructionProps extends AnnotationConstr { self: TermDeconstructionProps.type =>
 
   property("@$annot def foo") = forAll { (annotName: TypeName) =>
     val q"@$annot def foo" = q"@$annotName def foo"
-    println(showRaw(annot))
     annot ≈ Apply(Select(New(Ident(annotName)), nme.CONSTRUCTOR), List())
+  }
+
+  property("@$annot(..$args) def foo") = forAll { (annotName: TypeName, tree: Tree) =>
+    val q"@$annot(..$args) def foo" = q"@$annotName($tree) def foo"
+    annot ≈ Ident(annotName) && args ≈ List(tree)
+  }
+
+  property("@..$annots def foo") = test {
+    val a = annot("a")
+    val b = annot("b")
+    val q"@..$annots def foo" = q"@$a @$b def foo"
+    annots ≈ List(a, b)
+  }
+
+  property("@$annot @..$annots def foo") = test {
+    val a = annot("a")
+    val b = annot("b")
+    val c = annot("c")
+    val q"@$first @..$rest def foo" = q"@$a @$b @$c def foo"
+    first ≈ a && rest ≈ List(b, c)
   }
 }
