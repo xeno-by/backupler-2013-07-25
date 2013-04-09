@@ -298,9 +298,9 @@ trait StdNames {
     val LAZY_LOCAL: NameType               = "$lzy"
     val LAZY_SLOW_SUFFIX: NameType         = "$lzycompute"
     val LOCAL_SUFFIX_STRING                = " "
-    val MACRO_INVOKER_PACKAGE: NameType    = "<macroinvokers>"
-    // TODO: if I use dollars here, as in "$invoker$", then Scala reflection fails to load implementations
-    def MACRO_INVOKER_SUFFIX: NameType     = "_invoker_" + randomUUID().toString.replace("-", "")
+    val MACRO_INVOKER_PACKAGE: NameType    = "scala.reflect.macros.synthetic"
+    // TODO: if I use dollars in MACRO_INVOKER_SUFFIX, as in "$Invoker$", then Scala reflection fails to load implementations
+    val MACRO_INVOKER_SUFFIX: NameType     = "Invoker"
     val UNIVERSE_BUILD_PREFIX: NameType    = "$u.build."
     val UNIVERSE_PREFIX: NameType          = "$u."
     val UNIVERSE_SHORT: NameType           = "$u"
