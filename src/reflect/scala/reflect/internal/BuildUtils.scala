@@ -108,11 +108,16 @@ trait BuildUtils { self: SymbolTable =>
       def apply(mods: Modifiers, name: TypeName, tparams: List[TypeDef],
                 constrMods: Modifiers, vparamss: List[List[ValDef]], parents: List[Tree],
                 selfdef: ValDef, body: List[Tree]): Tree =
-        ClassDef(mods, name, tparams, treeInfo.Template(parents, selfdef, constrMods, vparamss, body, NoPosition))
+        ClassDef(mods, name, tparams, gen.mkTemplate(parents, selfdef, constrMods, vparamss, body, NoPosition))
 
       def unapply(tree: Tree): Option[(Modifiers, TypeName, List[TypeDef], Modifiers,
-                                       List[List[ValDef]], List[Tree], ValDef, List[Tree])] =
-        None
+                                       List[List[ValDef]], List[Tree], ValDef, List[Tree])] = tree match {
+        case ClassDef(mods, name, tparams, template) =>
+          val constrMods = NoMods
+          val vparamss = List()
+          val body = template.body
+          Some((mods, name, tparams, constrMods, vparamss, template.parents, template.self, body))
+      }
     }
   }
 
