@@ -127,6 +127,8 @@ trait BuildUtils { self: SymbolTable =>
               ValDef(originalMods, name, tpt, rhs)
           }}
           Some((mods, name, tparams, ctor.mods, vparamss, parents, selfdef, body))
+        case _ =>
+          None
       }
     }
   }
