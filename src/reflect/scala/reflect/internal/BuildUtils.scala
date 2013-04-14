@@ -103,6 +103,17 @@ trait BuildUtils { self: SymbolTable =>
         case _ => None
       }
     }
+
+    object DesugaredClassDef extends DesugaredClassDefExtractor {
+      def apply(mods: Modifiers, name: TypeName, tparams: List[TypeDef],
+                constrMods: Modifiers, vparamss: List[List[ValDef]], parents: List[Tree],
+                selfdef: ValDef, body: List[Tree]): Tree =
+        ClassDef(mods, name, tparams, treeInfo.Template(parents, selfdef, constrMods, vparamss, body, NoPosition))
+
+      def unapply(tree: Tree): Option[(Modifiers, TypeName, List[TypeDef], Modifiers,
+                                       List[List[ValDef]], List[Tree], ValDef, List[Tree])] =
+        None
+    }
   }
 
   val build: BuildApi = new BuildImpl
