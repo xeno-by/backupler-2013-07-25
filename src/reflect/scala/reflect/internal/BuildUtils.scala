@@ -1,6 +1,8 @@
 package scala.reflect
 package internal
 
+import Flags._
+
 trait BuildUtils { self: SymbolTable =>
 
   class BuildImpl extends BuildApi {
@@ -112,11 +114,19 @@ trait BuildUtils { self: SymbolTable =>
 
       def unapply(tree: Tree): Option[(Modifiers, TypeName, List[TypeDef], Modifiers,
                                        List[List[ValDef]], List[Tree], ValDef, List[Tree])] = tree match {
-        case ClassDef(mods, name, tparams, template) =>
-          val constrMods = NoMods
-          val vparamss = List()
-          val body = template.body
-          Some((mods, name, tparams, constrMods, vparamss, template.parents, template.self, body))
+        case ClassDef(mods, name, tparams, Template(parents, selfdef, tbody)) =>
+          val (auxdefs, (constr: DefDef) :: body) = tbody.splitAt(tbody.indexWhere {
+            case DefDef(_, nme.CONSTRUCTOR, _, _, _, _) => true
+            case _ => false
+          })
+          val (evdefs, fieldDefs) = auxdefs.span(treeInfo.isEarlyDef)
+          val modsMap = fieldDefs.map { case ValDef(mods, name, _, _) => name -> mods }.toMap
+          val vparamss = constr.vparamss.map { lst => lst.map {
+            case ValDef(mods, name, tpt, rhs) =>
+              val originalMods = modsMap(name) | (mods.flags & DEFAULTPARAM)
+              ValDef(originalMods, name, tpt, rhs)
+          }}
+          Some((mods, name, tparams, constr.mods, vparamss, parents, selfdef, body))
       }
     }
   }
