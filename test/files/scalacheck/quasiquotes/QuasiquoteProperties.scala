@@ -29,6 +29,10 @@ class QuasiquoteProperties(name: String) extends Properties(name) with Arbitrary
     def ≈(other: List[List[Tree]]) = (lst.length == other.length) && lst.zip(other).forall { case (l1, l2) => l1 ≈ l2 }
   }
 
+  implicit class TestSimilarName(name: Name) {
+    def ≈(other: Name) = name == other
+  }
+
   def assertThrows[T <: AnyRef](f: => Any)(implicit manifest: Manifest[T]): Unit = {
     val clazz = manifest.erasure.asInstanceOf[Class[T]]
     val thrown =

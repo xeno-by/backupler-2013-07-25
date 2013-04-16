@@ -115,17 +115,26 @@ trait BuildUtils { self: SymbolTable =>
       def unapply(tree: Tree): Option[(Modifiers, TypeName, List[TypeDef], Modifiers,
                                        List[List[ValDef]], List[Tree], ValDef, List[Tree])] = tree match {
         case ClassDef(mods, name, tparams, Template(parents, selfdef, tbody)) =>
-          val (auxdefs, (ctor: DefDef) :: body) = tbody.splitAt(tbody.indexWhere {
+          // extract generated fieldDefs and constructor
+          val (defs, (ctor: DefDef) :: body) = tbody.splitAt(tbody.indexWhere {
             case DefDef(_, nme.CONSTRUCTOR, _, _, _, _) => true
             case _ => false
           })
-          val (earlyDefs, fieldDefs) = auxdefs.span(treeInfo.isEarlyDef)
+          val (earlyDefs, fieldDefs) = defs.span(treeInfo.isEarlyDef)
+
+          // undo conversion from (implicit ... ) to ()(implicit ... ) when its the only parameter section
+          val vparamssRestoredImplicits = ctor.vparamss match {
+            case List() :: rest if !rest.isEmpty && !rest.head.isEmpty && rest.head.head.mods.isImplicit => rest
+            case other => other
+          }
+
+          // undo flag modifications by mergeing flag info from constructor args and fieldDefs
           val modsMap = fieldDefs.map { case ValDef(mods, name, _, _) => name -> mods }.toMap
-          val vparamss = ctor.vparamss.map { lst => lst.map {
-            case ValDef(mods, name, tpt, rhs) =>
-              val originalMods = modsMap(name) | (mods.flags & DEFAULTPARAM)
-              ValDef(originalMods, name, tpt, rhs)
+          val vparamss = vparamssRestoredImplicits.map { _.map { vd =>
+            val originalMods = modsMap(vd.name) | (vd.mods.flags & DEFAULTPARAM)
+            atPos(vd.pos)(ValDef(originalMods, vd.name, vd.tpt, vd.rhs))
           }}
+
           Some((mods, name, tparams, ctor.mods, vparamss, parents, selfdef, earlyDefs ::: body))
         case _ =>
           None
