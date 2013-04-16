@@ -37,7 +37,7 @@ object ErrorProps extends QuasiquoteProperties("errors") with AnnotationErrors {
 trait AnnotationErrors extends AnnotationConstr { self: QuasiquoteProperties =>
 
   property("can't splice annotations with '...' cardinality") = fails (
-    "Can't splice trees with '...' cardinality in annotation position."
+    "Can't splice tree with '...' cardinality in this position."
   ) {
     val annots = List(List(q"Foo"))
     q"@...$annots def foo"
