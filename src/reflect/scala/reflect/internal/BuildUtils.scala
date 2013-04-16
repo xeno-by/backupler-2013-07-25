@@ -119,14 +119,14 @@ trait BuildUtils { self: SymbolTable =>
             case DefDef(_, nme.CONSTRUCTOR, _, _, _, _) => true
             case _ => false
           })
-          val (evdefs, fieldDefs) = auxdefs.span(treeInfo.isEarlyDef)
+          val (earlyDefs, fieldDefs) = auxdefs.span(treeInfo.isEarlyDef)
           val modsMap = fieldDefs.map { case ValDef(mods, name, _, _) => name -> mods }.toMap
           val vparamss = ctor.vparamss.map { lst => lst.map {
             case ValDef(mods, name, tpt, rhs) =>
               val originalMods = modsMap(name) | (mods.flags & DEFAULTPARAM)
               ValDef(originalMods, name, tpt, rhs)
           }}
-          Some((mods, name, tparams, ctor.mods, vparamss, parents, selfdef, body))
+          Some((mods, name, tparams, ctor.mods, vparamss, parents, selfdef, earlyDefs ::: body))
         case _ =>
           None
       }
