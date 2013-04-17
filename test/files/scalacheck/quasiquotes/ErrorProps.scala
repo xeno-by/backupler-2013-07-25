@@ -6,7 +6,7 @@ import Arbitrary._
 import scala.reflect.runtime.universe._
 import Flag._
 
-object ErrorProps extends QuasiquoteProperties("errors") with AnnotationErrors {
+object ErrorProps extends QuasiquoteProperties("errors") {
 
   // // This test fails due to bug in untyped macro expansion
   // property("deconstruction: can't use two '..' cardinalities in a row") = fails (
@@ -32,9 +32,6 @@ object ErrorProps extends QuasiquoteProperties("errors") with AnnotationErrors {
     q"type $T1[$T2 >: _root_.scala.Any <: _root_.scala.Nothing] = $t" ≈
       TypeDef(Modifiers(), T1, List(T2), t)
   }
-}
-
-trait AnnotationErrors extends AnnotationConstr { self: QuasiquoteProperties =>
 
   property("can't splice annotations with '...' cardinality") = fails (
     "Can't splice tree with '...' cardinality in this position."

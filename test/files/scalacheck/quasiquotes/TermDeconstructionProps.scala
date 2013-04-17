@@ -6,12 +6,7 @@ import Arbitrary._
 import scala.reflect.runtime.universe._
 import Flag._
 
-object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction")
-                                  with ApplicationDeconstructionProps
-                                  with AnnotationDeconstructionProps
-                                  with ClassProps
-
-trait ApplicationDeconstructionProps { self: QuasiquoteProperties =>
+object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction") {
 
   property("f(x)") = forAll { (x: Tree) =>
     val q"f($x1)" = q"f($x)"
@@ -37,9 +32,6 @@ trait ApplicationDeconstructionProps { self: QuasiquoteProperties =>
     val q"f(...$argss)" = q"f($x1)($x2)"
     argss ≈ List(List(x1), List(x2))
   }
-}
-
-trait AnnotationDeconstructionProps extends AnnotationConstr { self: TermDeconstructionProps.type =>
 
   property("@$annot def foo") = forAll { (annotName: TypeName) =>
     val q"@$annot def foo" = q"@$annotName def foo"
@@ -65,9 +57,6 @@ trait AnnotationDeconstructionProps extends AnnotationConstr { self: TermDeconst
     val q"@$first @..$rest def foo" = q"@$a @$b @$c def foo"
     first ≈ a && rest ≈ List(b, c)
   }
-}
-
-trait ClassProps { self: QuasiquoteProperties =>
 
   property("class without params") = test {
     val q"class $name { ..$body }" = q"class Foo { def bar = 3 }"
@@ -92,7 +81,11 @@ trait ClassProps { self: QuasiquoteProperties =>
   property("class tparams") = test {
     val q"class $name[..$tparams]" = q"class Foo[A, B]"
     assert(tparams.map { _.name } == List(TypeName("A"), TypeName("B")))
+  }
 
+  property("trait deconstruction") = test {
+    val q"trait $name { ..$body }" = q"trait Foo { def foo }"
+    assert(name ≈ TypeName("Foo") && body ≈ List(q"def foo"))
   }
 
   // TODO: FIX ME

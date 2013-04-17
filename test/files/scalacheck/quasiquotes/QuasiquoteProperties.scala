@@ -48,5 +48,10 @@ class QuasiquoteProperties(name: String) extends Properties(name) with Arbitrary
     if(!thrown)
       assert(false, "exception wasn't thrown")
   }
+
+  def annot(name: String): Tree = annot(TypeName(name), Nil)
+  def annot(name: TypeName): Tree = annot(name, Nil)
+  def annot(name: String, args: List[Tree]): Tree = annot(TypeName(name), args)
+  def annot(name: TypeName, args: List[Tree]): Tree = q"new $name(..$args)"
 }
 
