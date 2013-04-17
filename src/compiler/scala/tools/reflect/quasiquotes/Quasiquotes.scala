@@ -8,4 +8,7 @@ abstract class Quasiquotes extends Macros
                               with Reifiers  {
   val c: Context
   val global: c.universe.type = c.universe
+
+  def debug(msg: String) =
+    if (c.universe.settings.Yquasiquotedebug.value) println(msg)
 }

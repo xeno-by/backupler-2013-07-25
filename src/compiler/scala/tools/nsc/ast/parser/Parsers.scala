@@ -3013,11 +3013,11 @@ self =>
         if (in.token == IMPORT) {
           in.flushDoc
           stats ++= importClause()
+        } else if (isDefIntro || isModifier || in.token == AT) {
+          stats ++= joinComment(nonLocalDefOrDcl)
         } else if (isExprIntro) {
           in.flushDoc
           stats += statement(InTemplate)
-        } else if (isDefIntro || isModifier || in.token == AT) {
-          stats ++= joinComment(nonLocalDefOrDcl)
         } else if (!isStatSep) {
           syntaxErrorOrIncomplete("illegal start of definition", true)
         }

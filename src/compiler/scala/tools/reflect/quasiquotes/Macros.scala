@@ -66,9 +66,6 @@ trait Macros { self: Quasiquotes =>
       (sb.toString, placeholders)
     }
 
-    def debug(msg: String) =
-      if (settings.Yquasiquotedebug.value) println(msg)
-
     /** Quasiquote macro expansion core logic. */
     def apply() = {
       val (universe, args, parts) = extract
