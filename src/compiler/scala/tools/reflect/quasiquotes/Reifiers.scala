@@ -4,7 +4,7 @@ package quasiquotes
 import scala.tools.nsc.Global
 import scala.reflect.reify.{Reifier => ReflectReifier}
 import scala.reflect.macros
-import scala.collection.immutable.ListMap
+import scala.collection.{immutable, mutable}
 
 trait Reifiers { self: Quasiquotes =>
   import global._
@@ -13,7 +13,19 @@ trait Reifiers { self: Quasiquotes =>
   import global.treeInfo._
   import global.definitions._
 
-  type Placeholders = ListMap[String, (Tree, Int)]
+  case class Placeholders(underlying: immutable.ListMap[String, (Tree, Int)]) {
+    val accessed = mutable.Set[String]()
+    def keys = underlying.keys
+    def contains(key: String) = underlying.contains(key)
+    def apply(key: String) = {
+      accessed += key
+      underlying(key)
+    }
+    def get(key: String) = {
+      accessed += key
+      underlying.get(key)
+    }
+  }
 
   abstract class Reifier(val universe: Tree, val placeholders: Placeholders) extends {
 
@@ -63,6 +75,14 @@ trait Reifiers { self: Quasiquotes =>
           println(s"### $tree is not mods placeholder")
           None
       }
+    }
+
+    def quasiquoteReify(tree: Tree): Tree = {
+      val reified = reifyTree(tree)
+      (placeholders.keys.toSet -- placeholders.accessed).foreach { hole =>
+        c.abort(placeholders(hole)._1.pos, "Can't splice in this position")
+      }
+      reified
     }
 
     override def reifyTree(tree: Tree): Tree = reifyBasicTree(tree)
@@ -229,41 +249,37 @@ trait Reifiers { self: Quasiquotes =>
       case other => reify(other)
     }
 
-    def noCustomFlags(m: Modifiers) = true
-    def noCustomAnnotations(m: Modifiers) = true
+    def noCustomFlags(m: Modifiers) = true //TODO
+
+    def noCustomAnnotations(m: Modifiers) = true // TODO
 
     override def reifyModifiers(m: Modifiers) = {
       val (modsholes, annots) = m.annotations.partition {
         case ModsPlaceholder(_) => true
         case _ => false
       }
-      if (modsholes.isEmpty) {
-        mirrorFactoryCall(nme.Modifiers, mirrorBuildCall(nme.flagsFromBits, reify(m.flags)),
-                                                         reify(m.privateWithin), reifyAnnotsList(annots))
+      val modsholes0 = modsholes.map {
+        case ModsPlaceholder(CorrespondsTo((tree, tpe))) => (tree, tpe)
+      }
+      val (mods, flags) = modsholes0.partition { case (tree, tpe) =>
+        if (tpe <:< modsType)
+          true
+        else if (tpe <:< flagsType)
+          false
+        else
+          c.abort(tree.pos, "Intance of FlagSet or Modifiers type is expected here but not ${tree.pos}")
+      }
+      if (mods.nonEmpty) {
+        require(mods.length == 1, mods(1)._1.pos, "Can't splice multiple modifiers")
+        require(flags.isEmpty, flags(0)._1.pos, "Can't splice Flags together with modifiers")
+        val List((tree, tpe)) = mods
+        require(noCustomFlags(m), tree.pos, "Can't splice Modifiers together with additional inline flags")
+        require(noCustomAnnotations(m), tree.pos, "Can't splice Modifiers together with additional annotations")
+        tree
       } else {
-        val modsholes0 = modsholes.map {
-          case ModsPlaceholder(CorrespondsTo((tree, tpe))) => (tree, tpe)
-        }
-        val (mods, flags) = modsholes0.partition { case (tree, tpe) =>
-          if (tpe <:< modsType)
-            true
-          else if (tpe <:< flagsType)
-            false
-          else
-            c.abort(tree.pos, "Flags and Modifiers is expected but ${tree.pos} found")
-        }
-        if(mods.nonEmpty) {
-          require(mods.length == 1, mods(1)._1.pos, "Can't splice multiple modifiers")
-          require(flags.isEmpty, flags(0)._1.pos, "Can't splice Flags together with modifiers")
-          val List((tree, tpe)) = mods
-          require(noCustomFlags(m), tree.pos, "Can't splice Modifiers together with additional inline flags")
-          require(noCustomAnnotations(m), tree.pos, "Can't splice Modifiers together with additional annotations")
-          tree
-        } else {
-          val baseFlags =  mirrorBuildCall(nme.flagsFromBits, reify(m.flags))
-          val reifiedFlags = flags.foldLeft[Tree](baseFlags) { case (flag, (tree, _)) => q"$flag | $tree" }
-          mirrorFactoryCall(nme.Modifiers, reifiedFlags, reify(m.privateWithin), reifyAnnotsList(annots))
-        }
+        val baseFlags = mirrorBuildCall(nme.flagsFromBits, reify(m.flags))
+        val reifiedFlags = flags.foldLeft[Tree](baseFlags) { case (flag, (tree, _)) => q"$flag | $tree" }
+        mirrorFactoryCall(nme.Modifiers, reifiedFlags, reify(m.privateWithin), reifyAnnotsList(annots))
       }
     }
   }
@@ -341,7 +357,6 @@ trait Reifiers { self: Quasiquotes =>
     override def reifyModifiers(m: global.Modifiers) =
       mirrorFactoryCall(nme.Modifiers, mirrorBuildCall("FlagsAsBits", reify(m.flags)),
                                        reify(m.privateWithin), reifyAnnotsList(m.annotations))
-
 
     override def mirrorSelect(name: String): Tree =
       Select(universe, TermName(name))

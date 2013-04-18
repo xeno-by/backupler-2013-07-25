@@ -63,6 +63,8 @@ trait Parsers { self: Quasiquotes =>
         cases
       }
 
+      // TODO current solution partially resides in
+      //      default scanner it might be better idea to fully move it here
       private class PlainScannerData extends ScannerData {
         var ch: Char = _
         var charOffset: Int = 0
@@ -71,7 +73,7 @@ trait Parsers { self: Quasiquotes =>
       }
 
       def peekingAhead[T](body: => T): T = {
-        // peek ahead
+        // back up scanner state
         val curr = new PlainScannerData; curr.copyFrom(in)
         val prev = new PlainScannerData; prev.copyFrom(in.prev)
         val next = new PlainScannerData; next.copyFrom(in.next)
@@ -79,7 +81,7 @@ trait Parsers { self: Quasiquotes =>
 
         val res = body
 
-        // push back
+        // restore saves state
         in copyFrom curr
         in.prev copyFrom prev
         in.next copyFrom next
@@ -96,8 +98,8 @@ trait Parsers { self: Quasiquotes =>
       def modsPlaceholderAnnot(name: TermName): Tree =
         q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
 
-      // @ foo $quasiquote$1 def foo
-      // $quasiquote$1 T
+      // $mods def foo
+      // $mods T
       def customReadAnnots(annot: => Tree): List[Tree] = {
         val annots = new ListBuffer[Tree]
         var break = false

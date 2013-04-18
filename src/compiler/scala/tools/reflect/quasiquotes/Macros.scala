@@ -46,7 +46,7 @@ trait Macros { self: Quasiquotes =>
     /** Generates scala code to be parsed by parser and placeholders map from incoming args and parts. */
     def generate(args: List[Tree], parts: List[String]): (String, Placeholders) = {
       val sb = new StringBuilder()
-      var placeholders = ListMap[String, (Tree, Int)]()
+      var pmap = ListMap[String, (Tree, Int)]()
 
       foreach2(args, parts.init) { (tree, p) =>
         val (part, cardinality) =
@@ -59,11 +59,11 @@ trait Macros { self: Quasiquotes =>
         val freshname = c.fresh(nme.QUASIQUOTE_PREFIX)
         sb.append(part)
         sb.append(freshname)
-        placeholders += freshname -> (tree, cardinality)
+        pmap += freshname -> (tree, cardinality)
       }
       sb.append(parts.last)
 
-      (sb.toString, placeholders)
+      (sb.toString, Placeholders(pmap))
     }
 
     /** Quasiquote macro expansion core logic. */
@@ -73,7 +73,7 @@ trait Macros { self: Quasiquotes =>
       debug(s"\ncode to parse=\n$code\n")
       val tree = parser.parse(code, placeholders.keys.toSet)
       debug(s"parsed tree\n=${tree}\n=${showRaw(tree)}\n")
-      val reified = reifier(universe, placeholders).reify(tree)
+      val reified = reifier(universe, placeholders).quasiquoteReify(tree)
       debug(s"reified tree\n=${reified}\n=${showRaw(reified)}\n")
       val result = wrap(universe, reified)
       debug(s"result tree\n=${result}\n=${showRaw(result)}\n")
