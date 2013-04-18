@@ -98,7 +98,7 @@ trait Parsers { self: Quasiquotes =>
       }
 
       def modsPlaceholderAnnot(name: TermName): Tree =
-        q"new ${nme.QUASIQUOTE_MODS}(${name.toString})"
+        q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
 
       // @ foo $quasiquote$1 def foo
       // $quasiquote$1 T

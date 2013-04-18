@@ -88,6 +88,12 @@ object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction
     assert(name ≈ TypeName("Foo") && body ≈ List(q"def foo"))
   }
 
+  // fixme
+  // property("deconstruct new") = forAll { (name: TypeName, args: List[Tree]) =>
+  //   val q"new $name1(..$args1)" = q"new $name(..$args)"
+  //   assert(name1 ≈ Ident(name) && args1 ≈ args)
+  // }
+
   // TODO: FIX ME
   // property("deconstruct early val defs") = test {
   //   val q"new { ..$defs } with $bla " = q"new { val x = 0 } with Foo"
