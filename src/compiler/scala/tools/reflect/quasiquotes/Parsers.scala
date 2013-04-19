@@ -89,11 +89,20 @@ trait Parsers { self: Quasiquotes =>
         res
       }
 
+      def isPlaceholder =
+        isIdent && placeholders.contains(in.name.toString)
+
+      override def isModifier: Boolean =
+        super.isModifier || (isPlaceholder && peekingAhead { isModifier })
+
+      override def isLocalModifier: Boolean =
+        super.isLocalModifier || (isPlaceholder && peekingAhead { isLocalModifier })
+
       override def isTemplateIntro: Boolean =
-        super.isTemplateIntro || (isIdent && placeholders.contains(in.name.toString) && peekingAhead { isTemplateIntro })
+        super.isTemplateIntro || (isPlaceholder && peekingAhead { isTemplateIntro })
 
       override def isDclIntro: Boolean =
-        super.isDclIntro || (isIdent && placeholders.contains(in.name.toString) && peekingAhead { isDclIntro })
+        super.isDclIntro || (isPlaceholder && peekingAhead { isDclIntro })
 
       def modsPlaceholderAnnot(name: TermName): Tree =
         q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
@@ -104,15 +113,11 @@ trait Parsers { self: Quasiquotes =>
         val annots = new ListBuffer[Tree]
         var break = false
 
-        def canConsume() =
-          isIdent && placeholders.contains(in.name.toString) &&
-          peekingAhead { in.token == AT || isModifier || isDefIntro || isIdent}
-
         while (!break) {
           if (in.token == AT) {
             in.nextToken()
             annots += annot
-          } else if(canConsume()) {
+          } else if(isPlaceholder && peekingAhead { in.token == AT || isModifier || isDefIntro || isIdent}) {
             println(s"consuming ${in.name}")
             annots += modsPlaceholderAnnot(in.name)
             in.nextToken()

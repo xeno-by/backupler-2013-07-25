@@ -249,9 +249,17 @@ trait Reifiers { self: Quasiquotes =>
       case other => reify(other)
     }
 
-    def noCustomFlags(m: Modifiers) = true //TODO
+    final val inlineFlags = List(
+      PRIVATE, PROTECTED, LAZY, IMPLICIT,
+      CASE, FINAL, COVARIANT, CONTRAVARIANT,
+      OVERRIDE, SEALED)
 
-    def noCustomAnnotations(m: Modifiers) = true // TODO
+    def requireNoCustomFlags(m: Modifiers, pos: Position) = {
+      val flags = m.flags
+      inlineFlags.foreach { f =>
+        require((flags & f) == 0L, pos, "Can't splice Modifiers together with inline Flags.")
+      }
+    }
 
     override def reifyModifiers(m: Modifiers) = {
       val (modsholes, annots) = m.annotations.partition {
@@ -270,11 +278,11 @@ trait Reifiers { self: Quasiquotes =>
           c.abort(tree.pos, "Intance of FlagSet or Modifiers type is expected here but not ${tree.pos}")
       }
       if (mods.nonEmpty) {
-        require(mods.length == 1, mods(1)._1.pos, "Can't splice multiple modifiers")
-        require(flags.isEmpty, flags(0)._1.pos, "Can't splice Flags together with modifiers")
+        require(mods.length == 1, mods(1)._1.pos, "Can't splice multiple Modifiers")
+        require(flags.isEmpty, flags(0)._1.pos, "Can't splice Flags together with Modifiers")
         val List((tree, tpe)) = mods
-        require(noCustomFlags(m), tree.pos, "Can't splice Modifiers together with additional inline flags")
-        require(noCustomAnnotations(m), tree.pos, "Can't splice Modifiers together with additional annotations")
+        require(annots.isEmpty, tree.pos, "Can't splice Modifiers together with additional annotations")
+        requireNoCustomFlags(m, tree.pos)
         tree
       } else {
         val baseFlags = mirrorBuildCall(nme.flagsFromBits, reify(m.flags))

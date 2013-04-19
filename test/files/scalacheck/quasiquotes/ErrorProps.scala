@@ -49,4 +49,7 @@ object ErrorProps extends QuasiquoteProperties("errors") {
   //   val c = annot("c")
   //   val q"@..$first @$rest def foo" = q"@$a @$b @$c def foo"
   // }
+
+  // // Make sure a nice error is reported in this case
+  // { import Flag._; val mods = NoMods; q"lazy $mods val x: Int" }
 }
