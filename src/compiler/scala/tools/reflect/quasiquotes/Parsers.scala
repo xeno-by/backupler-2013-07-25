@@ -72,7 +72,7 @@ trait Parsers { self: Quasiquotes =>
         var lastLineStartOffset: Int = 0
       }
 
-      def peekingAhead[T](body: => T): T = {
+      def ahead[T](body: => T): T = {
         // back up scanner state
         val curr = new PlainScannerData; curr.copyFrom(in)
         val prev = new PlainScannerData; prev.copyFrom(in.prev)
@@ -89,20 +89,17 @@ trait Parsers { self: Quasiquotes =>
         res
       }
 
-      def isPlaceholder =
-        isIdent && placeholders.contains(in.name.toString)
+      def isPlaceholder = isIdent && placeholders.contains(in.name.toString)
 
-      override def isModifier: Boolean =
-        super.isModifier || (isPlaceholder && peekingAhead { isModifier })
+      override def isAnnotation: Boolean =  super.isAnnotation || (isPlaceholder && ahead { isAnnotation })
 
-      override def isLocalModifier: Boolean =
-        super.isLocalModifier || (isPlaceholder && peekingAhead { isLocalModifier })
+      override def isModifier: Boolean = super.isModifier || (isPlaceholder && ahead { isModifier })
 
-      override def isTemplateIntro: Boolean =
-        super.isTemplateIntro || (isPlaceholder && peekingAhead { isTemplateIntro })
+      override def isLocalModifier: Boolean = super.isLocalModifier || (isPlaceholder && ahead { isLocalModifier })
 
-      override def isDclIntro: Boolean =
-        super.isDclIntro || (isPlaceholder && peekingAhead { isDclIntro })
+      override def isTemplateIntro: Boolean = super.isTemplateIntro || (isPlaceholder && ahead { isTemplateIntro })
+
+      override def isDclIntro: Boolean = super.isDclIntro || (isPlaceholder && ahead { isDclIntro })
 
       def modsPlaceholderAnnot(name: TermName): Tree =
         q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
@@ -117,7 +114,7 @@ trait Parsers { self: Quasiquotes =>
           if (in.token == AT) {
             in.nextToken()
             annots += annot
-          } else if(isPlaceholder && peekingAhead { in.token == AT || isModifier || isDefIntro || isIdent}) {
+          } else if(isPlaceholder && ahead { in.token == AT || isModifier || isDefIntro || isIdent}) {
             println(s"consuming ${in.name}")
             annots += modsPlaceholderAnnot(in.name)
             in.nextToken()

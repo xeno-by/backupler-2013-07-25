@@ -266,10 +266,9 @@ trait Reifiers { self: Quasiquotes =>
         case ModsPlaceholder(_) => true
         case _ => false
       }
-      val modsholes0 = modsholes.map {
+      val (mods, flags) = modsholes.map {
         case ModsPlaceholder(CorrespondsTo((tree, tpe))) => (tree, tpe)
-      }
-      val (mods, flags) = modsholes0.partition { case (tree, tpe) =>
+      }.partition { case (tree, tpe) =>
         if (tpe <:< modsType)
           true
         else if (tpe <:< flagsType)
