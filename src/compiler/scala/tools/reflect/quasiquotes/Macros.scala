@@ -83,7 +83,7 @@ trait Macros { self: Quasiquotes =>
 
   trait ApplyMacro extends AbstractMacro {
     def reifier(universe: Tree, placeholders: Placeholders): Reifier =
-      new ApplyReifier(universe, placeholders)
+      new ApplyReifierWithSymbolSplicing(universe, placeholders)
     def wrap(universe: Tree, reified: Tree): Tree =
       q"""{
         val $u: $universe.type = $universe
