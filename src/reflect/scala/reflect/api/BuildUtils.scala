@@ -116,5 +116,11 @@ private[reflect] trait BuildUtils { self: Universe =>
       def unapply(tree: Tree): Option[(Modifiers, TypeName, List[TypeDef], Modifiers,
                                        List[List[ValDef]], List[Tree], ValDef, List[Tree])]
     }
+
+    val True: Tree
+    val False: Tree
+    val Zero: Tree
+    val Null: Tree
+    val Unit: Tree
   }
 }

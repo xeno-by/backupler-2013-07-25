@@ -37,6 +37,9 @@ trait Reifiers { self: Quasiquotes =>
 
   } with ReflectReifier with Types {
 
+    // shortcut
+    val u = universe
+
     /** Extractor that matches simple identity-like trees which
      *  correspond to placeholders within quasiquote.
      */
@@ -88,6 +91,15 @@ trait Reifiers { self: Quasiquotes =>
 
     override def reifyTree(tree: Tree): Tree = reifyBasicTree(tree)
 
+    override def reifyBasicTree(tree: Tree): Tree = tree match {
+      case Literal(Constant(true)) => q"$u.build.True"
+      case Literal(Constant(false)) => q"$u.build.False"
+      case Literal(Constant(0)) => q"$u.build.Zero"
+      case Literal(Constant(null)) => q"$u.build.Zero"
+      case Literal(Constant(())) => q"$u.build.Unit"
+      case _ => super.reifyBasicTree(tree)
+    }
+
     // TODO: make sure that this list is complete
     final val inlineFlags = List(
       PRIVATE, PROTECTED, LAZY, IMPLICIT,
@@ -100,6 +112,15 @@ trait Reifiers { self: Quasiquotes =>
         require((flags & f) == 0L, pos, "Can't $action Modifiers together with inline Flags.")
       }
     }
+
+    override def mirrorSelect(name: String): Tree =
+      Select(universe, TermName(name))
+
+    override def mirrorCall(name: TermName, args: Tree*): Tree =
+      Apply(Select(universe, name), args.toList)
+
+    override def mirrorBuildCall(name: TermName, args: Tree*): Tree =
+      Apply(Select(Select(universe, nme.build), name), args.toList)
   }
 
   class ApplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
@@ -312,8 +333,6 @@ trait Reifiers { self: Quasiquotes =>
 
   class UnapplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
 
-    val u = universe
-
     object CorrespondsTo {
       def unapply(name: String): Option[(Tree, Int)] =
         placeholders.get(name)
@@ -394,15 +413,6 @@ trait Reifiers { self: Quasiquotes =>
         mirrorFactoryCall(nme.Modifiers, mirrorBuildCall("FlagsAsBits", reify(m.flags)),
                                          reify(m.privateWithin), reifyAnnotsList(m.annotations))
     }
-
-    override def mirrorSelect(name: String): Tree =
-      Select(universe, TermName(name))
-
-    override def mirrorCall(name: TermName, args: Tree*): Tree =
-      Apply(Select(universe, name), args.toList)
-
-    override def mirrorBuildCall(name: TermName, args: Tree*): Tree =
-      Apply(Select(Select(universe, nme.build), name), args.toList)
   }
 
   trait Types {

@@ -140,6 +140,12 @@ trait BuildUtils { self: SymbolTable =>
           None
       }
     }
+
+    val True  = Literal(Constant(true))
+    val False = Literal(Constant(false))
+    val Zero  = Literal(Constant(0))
+    val Null  = Literal(Constant(null))
+    val Unit  = Literal(Constant(()))
   }
 
   val build: BuildApi = new BuildImpl

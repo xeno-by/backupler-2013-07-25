@@ -9,12 +9,6 @@ import scala.collection.immutable.ListMap
 trait Macros { self: Quasiquotes =>
   import c.universe._
 
-  /** This is a shorcut variable that links to "$u" universe variable name.
-   *  With the help of it it's possible to use $u inside of the quasiquote
-   *  and it will have the same meaning in expanded code.
-   */
-  val u = nme.UNIVERSE_SHORT
-
   /** This trait abstracts over all variations of quasiquotes
    *  and allows to share core logic. The main differences are
    *  in parser, reifier and wrapping behaviour.
@@ -25,9 +19,6 @@ trait Macros { self: Quasiquotes =>
 
     /** Reifier factory that abstracts over different reifiers need for apply and unapply macros. */
     def reifier(universe: Tree, placeholders: Placeholders): Reifier
-
-    /** Wraps reified tree into a final result of macro expansion. */
-    def wrap(universe: Tree, reified: Tree): Tree
 
     /** Extracts universe tree, args trees and params strings from macroApplication. */
     def extract = c.macroApplication match {
@@ -75,33 +66,25 @@ trait Macros { self: Quasiquotes =>
       debug(s"parsed tree\n=${tree}\n=${showRaw(tree)}\n")
       val reified = reifier(universe, placeholders).quasiquoteReify(tree)
       debug(s"reified tree\n=${reified}\n=${showRaw(reified)}\n")
-      val result = wrap(universe, reified)
-      debug(s"result tree\n=${result}\n=${showRaw(result)}\n")
-      result
+      reified
     }
   }
 
-  trait ApplyMacro extends AbstractMacro {
+  trait ApplyReification {
     def reifier(universe: Tree, placeholders: Placeholders): Reifier =
       new ApplyReifierWithSymbolSplicing(universe, placeholders)
-    def wrap(universe: Tree, reified: Tree): Tree =
-      q"""{
-        val $u: $universe.type = $universe
-        $reified
-      }"""
   }
 
-  trait UnapplyMacro extends AbstractMacro {
+  trait UnapplyReification {
     def reifier(universe: Tree, placeholders: Placeholders): Reifier =
       new UnapplyReifier(universe, placeholders)
-    def wrap(universe: Tree, reified: Tree) = reified
   }
 
   trait TermParsing { val parser = TermParser }
   trait TypeParsing { val parser = TypeParser }
 
-  def applyQ = (new ApplyMacro with TermParsing).apply()
-  def applyTq = (new ApplyMacro with TypeParsing).apply()
-  def unapplyQ = (new UnapplyMacro with TermParsing).apply()
-  def unapplyTq = (new UnapplyMacro with TypeParsing).apply()
+  def applyQ = (new AbstractMacro with ApplyReification with TermParsing).apply()
+  def applyTq = (new AbstractMacro with ApplyReification with TypeParsing).apply()
+  def unapplyQ = (new AbstractMacro with UnapplyReification with TermParsing).apply()
+  def unapplyTq = (new AbstractMacro with UnapplyReification with TypeParsing).apply()
 }
