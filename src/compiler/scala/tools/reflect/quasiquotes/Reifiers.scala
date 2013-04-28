@@ -76,7 +76,6 @@ trait Reifiers { self: Quasiquotes =>
         case q"new ${Ident(tpnme.QUASIQUOTE_MODS)}(${Literal(Constant(s: String))})" =>
           Some(s)
         case _ =>
-          println(s"### $tree is not mods placeholder")
           None
       }
     }
