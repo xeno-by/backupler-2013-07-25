@@ -3290,6 +3290,17 @@ trait Symbols extends api.Symbols { self: SymbolTable =>
     if (syms.isEmpty) tpe
     else tpe.instantiateTypeParams(syms, syms map (_ => WildcardType))
   }
+  /** Derives a new Type by instantiating all undetermined type parameters as
+   *  WildcardTypes.
+   *
+   *  @return           the new type with WildcardType replacing undetparams
+   */
+  def deriveTypeWithWildcards(tpe: Type): Type = {
+    var undetparams = List[Symbol]()
+    def traverse(sym: Symbol) = if (sym.isTypeParameter && !sym.isSkolem) undetparams ::= sym
+    tpe.foreach(sub => traverse(sub.typeSymbol))
+    deriveTypeWithWildcards(undetparams)(tpe)
+  }
   /** Convenience functions which derive symbols by cloning.
    */
   def cloneSymbols(syms: List[Symbol]): List[Symbol] =
