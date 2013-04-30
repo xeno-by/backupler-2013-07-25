@@ -603,7 +603,7 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
   /** Expands a term macro used in apply role as `M(2)(3)` in `val x = M(2)(3)`.
    *  @see MacroExpander
    */
-  def macroExpandApply(typer: Typer, expandee: Tree, mode: Mode, pt: Type) = {
+  def macroExpandApply(typer: Typer, expandee: Tree, mode: Mode, pt: Type): Tree = {
     object expander extends MacroExpander[Tree](APPLY_ROLE, typer, expandee) {
       override def allowedExpansions: String = "term trees"
       override def allowExpandee(expandee: Tree) = expandee.isTerm
@@ -614,6 +614,10 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
         linkExpandeeAndExpanded(expandee, expanded)
         var expectedTpe = expandee.tpe
         if (isNullaryInvocation(expandee)) expectedTpe = expectedTpe.finalResultType
+        var undetparams = List[Symbol]()
+        def traverse(sym: Symbol) = if (sym.isTypeParameter && !sym.isSkolem) undetparams ::= sym
+        expectedTpe.foreach(sub => traverse(sub.typeSymbol))
+        expectedTpe = deriveTypeWithWildcards(undetparams)(expectedTpe)
         // `macroExpandApply` is called from `adapt`, where implicit conversions are disabled
         // therefore we need to re-enable the conversions back temporarily
         if (macroDebugVerbose) println(s"typecheck #1 (against expectedTpe = $expectedTpe): $expanded")
@@ -647,10 +651,20 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
         // expandee will forever remaing not expanded (see SI-5692). A traditional way out of this conundrum
         // is to call `instantiate` and let the inferencer try to find the way out. It works for simple cases,
         // but sometimes, if the inferencer lacks information, it will be forced to approximate. This prevents
-        // an important class of macros, fundep materializers, from working, which I perceive is a problem we need to solve.
-        // For details see SI-7470.
+        // an important class of macros, fundep materializers, from working.
+        //
+        // To give materializers a chance to say their word before vanilla inference kicks in,
+        // we infer as much as possible (e.g. in the example above even though L is hopeless, C still can be inferred to Foo)
+        // and then trigger macro expansion with the undetermined type parameters still there.
+        // Thanks to that the materializer can take a look at what's going on and react accordingly.
+        // Simple, yet powerful and much more lightweight and elegant than onInfer.
+        // (What's onInfer? See http://docs.scala-lang.org/overviews/macros/inference.html)
         val shouldInstantiate = typer.context.undetparams.nonEmpty && !mode.inPolyMode
-        if (shouldInstantiate) typer.instantiatePossiblyExpectingUnit(delayed, mode, pt)
+        if (shouldInstantiate) {
+          forced += delayed
+          typer.infer.inferExprInstance(delayed, typer.context.extractUndetparams(), pt, keepNothings = false)
+          macroExpandApply(typer, delayed, mode, WildcardType)
+        }
         else delayed
       }
     }
@@ -1012,10 +1026,12 @@ trait Macros extends FastTrack with MacroRuntimes with Traces with Helpers {
    *    2) undetparams (sym.isTypeParameter && !sym.isSkolem)
    */
   var hasPendingMacroExpansions = false
+  private val forced = perRunCaches.newWeakSet[Tree]
   private val delayed = perRunCaches.newWeakMap[Tree, scala.collection.mutable.Set[Int]]()
   private def isDelayed(expandee: Tree) = delayed contains expandee
   private def calculateUndetparams(expandee: Tree): scala.collection.mutable.Set[Int] =
-    delayed.get(expandee).getOrElse {
+    if (forced contains expandee) scala.collection.mutable.Set[Int]()
+    else delayed.get(expandee).getOrElse {
       val calculated = scala.collection.mutable.Set[Symbol]()
       val treeInfo.Applied(core, _, argss) = expandee
       val traversalRoots = if (isUntypedMacroApplication(core)) argss.flatten else List(expandee)
