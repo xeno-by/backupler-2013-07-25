@@ -462,6 +462,11 @@ trait ContextErrors {
         setError(tree)
       }
 
+      def NakedArrayFactoryError(tree: Tree) = {
+        issueNormalTypeError(tree, "this type parameter must be specified")
+        setError(tree)
+      }
+
       // doTypeApply
       //tryNamesDefaults
       def NamedAndDefaultArgumentsNotSupportedForMacros(tree: Tree, fun: Tree) =

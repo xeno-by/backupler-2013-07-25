@@ -4595,6 +4595,17 @@ trait Typers extends Modes with Adaptations with Tags {
                 // (calling typed1 more than once for the same tree)
                 if (checked ne res) typed { atPos(tree.pos)(checked) }
                 else res
+              // TODO: I'm about to fix SI-5923, and that fix is going to uncover SI-5353
+              // (see more information here: https://github.com/scala/scala/pull/2464).
+              // Since the fix to SI-5353 is going to bring binary incompatibilities,
+              // we cannot include it into 2.10.x, but we want to fix SI-5923 in 2.10.2.
+              // Therefore we decided to emulate the portion of SI-5923 that used to mask
+              // SI-5353. That's only a temporary hack targeted at 2.10.x. There's no
+              // reason for this code to appear in master.
+              } else if (fun2.symbol == ArrayModule_genericApply) {
+                val treeInfo.Applied(core, targs, args) = tree
+                if (targs.isEmpty && args.isEmpty) NakedArrayFactoryError(tree)
+                else res
               } else
                 res
             case SilentTypeError(err) =>
