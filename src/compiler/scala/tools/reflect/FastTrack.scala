@@ -2,6 +2,7 @@ package scala.tools
 package reflect
 
 import scala.reflect.reify.Taggers
+import scala.tools.reflect.quasiquotes.{Quasiquotes => QuasiquoteImpls}
 import scala.tools.nsc.typechecker.{Analyzer, Macros}
 
 /** Optimizes system macro expansions by hardwiring them directly to their implementations
@@ -16,6 +17,7 @@ trait FastTrack {
   import scala.language.implicitConversions
   private implicit def context2taggers(c0: MacroContext): Taggers { val c: c0.type } = new { val c: c0.type = c0 } with Taggers
   private implicit def context2macroimplementations(c0: MacroContext): MacroImplementations { val c: c0.type } = new { val c: c0.type = c0 } with MacroImplementations
+  private implicit def context2quasiquotes(c0: MacroContext): QuasiquoteImpls { val c: c0.type } = new { val c: c0.type = c0 } with QuasiquoteImpls
 
   implicit def fastTrackEntry2MacroRuntime(entry: FastTrackEntry): MacroRuntime = args => entry.run(args.c)
   type FastTrackExpander = PartialFunction[(MacroContext, Tree), Tree]
@@ -36,6 +38,10 @@ trait FastTrack {
     ApiUniverseReify bindTo { case (c, Apply(TypeApply(_, List(tt)), List(expr))) => c.materializeExpr(c.prefix.tree, EmptyTree, expr) }
     ReflectRuntimeCurrentMirror bindTo { case (c, _) => scala.reflect.runtime.Macros.currentMirror(c).tree }
     StringContext_f bindTo { case (c, app@Apply(Select(Apply(_, parts), _), args)) => c.macro_StringInterpolation_f(parts, args, app.pos) }
+    QuasiquoteClass_q_apply bindTo { case (c, _) => c.applyQ }
+    QuasiquoteClass_q_unapply bindTo { case (c, _) => c.unapplyQ }
+    QuasiquoteClass_tq_apply bindTo { case (c, _) => c.applyTq }
+    QuasiquoteClass_tq_unapply bindTo { case (c, _) => c.unapplyTq }
     registry
   }
 }

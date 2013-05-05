@@ -597,6 +597,8 @@ self =>
       case _ => false
     }
 
+    def isAnnotation: Boolean = in.token == AT
+
     def isLocalModifier: Boolean = in.token match {
       case ABSTRACT | FINAL | SEALED | IMPLICIT | LAZY => true
       case _ => false
@@ -1409,7 +1411,7 @@ self =>
               } else {
                 syntaxErrorOrIncomplete("`*' expected", true)
               }
-            } else if (in.token == AT) {
+            } else if (isAnnotation) {
               t = (t /: annotations(skipNewLines = false))(makeAnnotated)
             } else {
               t = atPos(t.pos.startOrPoint, colonPos) {
@@ -2107,6 +2109,8 @@ self =>
 
 /* -------- PARAMETERS ------------------------------------------- */
 
+    def allowTypelessParams = false
+
     /** {{{
      *  ParamClauses      ::= {ParamClause} [[nl] `(' implicit Params `)']
      *  ParamClause       ::= [nl] `(' [Params] `)'
@@ -2143,7 +2147,7 @@ self =>
         val name = ident()
         var bynamemod = 0
         val tpt =
-          if (settings.YmethodInfer.value && !owner.isTypeName && in.token != COLON) {
+          if (((settings.YmethodInfer.value && !owner.isTypeName) || allowTypelessParams) && in.token != COLON) {
             TypeTree()
           } else { // XX-METHOD-INFER
             accept(COLON)
@@ -2932,7 +2936,7 @@ self =>
           case IMPORT =>
             in.flushDoc
             importClause()
-          case x if x == AT || isTemplateIntro || isModifier =>
+          case x if isAnnotation || isTemplateIntro || isModifier =>
             joinComment(List(topLevelTmplDef))
           case _ =>
             if (!isStatSep)
@@ -2989,11 +2993,11 @@ self =>
         if (in.token == IMPORT) {
           in.flushDoc
           stats ++= importClause()
+        } else if (isDefIntro || isModifier || isAnnotation) {
+          stats ++= joinComment(nonLocalDefOrDcl)
         } else if (isExprIntro) {
           in.flushDoc
           stats += statement(InTemplate)
-        } else if (isDefIntro || isModifier || in.token == AT) {
-          stats ++= joinComment(nonLocalDefOrDcl)
         } else if (!isStatSep) {
           syntaxErrorOrIncomplete("illegal start of definition", true)
         }
@@ -3073,7 +3077,7 @@ self =>
           stats += statement(InBlock)
           if (in.token != RBRACE && in.token != CASE) acceptStatSep()
         }
-        else if (isDefIntro || isLocalModifier || in.token == AT) {
+        else if (isDefIntro || isLocalModifier || isAnnotation) {
           if (in.token == IMPLICIT) {
             val start = in.skipToken()
             if (isIdent) stats += implicitClosure(start, InBlock)
