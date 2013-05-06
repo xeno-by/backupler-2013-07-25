@@ -162,12 +162,25 @@ trait Reifiers { self: Quasiquotes =>
 
       object LiftableType {
         def unapply(tpe: Type): Option[Tree] = {
-          val liftType = appliedType(liftableType, List(tpe))
-          val lift = c.inferImplicitValue(liftType, silent = true)
-          if (lift != EmptyTree)
-            Some(lift)
-          else
-            None
+          // NOTE: cannot define Liftable in scala.reflect.api.Universe because of compatibility constraints
+          // therefore we have to work around, and given the path-dependent madness
+          // the best workaround is to simply require Liftable to be defined somewhere in scope
+          // not very robust, but very time-efficient, and since scala-pickling-210x is going to be the only client
+          // of this scalac fork, we can afford to be less robust
+          // val liftType = appliedType(liftableType, List(tpe))
+          import analyzer._
+          val liftTypeTree = AppliedTypeTree(Ident(newTypeName("Liftable")), List(TypeTree(tpe)))
+          c.callsiteTyper.silent(_.typed(liftTypeTree, TYPEmode, WildcardType)) match {
+            case SilentResultValue(liftTypeTree) =>
+              val liftType = liftTypeTree.tpe
+              val lift = c.inferImplicitValue(liftType, silent = true)
+              if (lift != EmptyTree)
+                Some(lift)
+              else
+                None
+            case error @ SilentTypeError(_) =>
+              c.abort(c.enclosingPosition, "Liftable could not be resolved: " + error.err.errMsg)
+          }
         }
       }
 
@@ -417,7 +430,6 @@ trait Reifiers { self: Quasiquotes =>
     lazy val symbolType = memberType(universeType, tpnme.Symbol)
     lazy val treeType = memberType(universeType, tpnme.Tree)
     lazy val typeDefType = memberType(universeType, tpnme.TypeDef)
-    lazy val liftableType = LiftableClass.toType
     lazy val iterableType = appliedType(IterableClass.toType, List(AnyTpe))
     lazy val iterableTreeType = appliedType(iterableType, List(treeType))
     lazy val iterableIterableTreeType = appliedType(iterableType, List(iterableTreeType))
