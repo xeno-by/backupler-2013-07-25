@@ -6,6 +6,7 @@ import Arbitrary._
 import scala.reflect.api._
 import scala.reflect.runtime.universe._
 import scala.reflect.runtime.universe.Flag._
+import QuasiquoteUtils.Liftable
 
 trait ArbitraryTreesAndNames {
 
