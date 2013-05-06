@@ -662,11 +662,11 @@ trait Macros extends scala.tools.reflect.FastTrack with Traces {
   private def popMacroContext() = _openMacros = _openMacros.tail
   def enclosingMacroPosition = openMacros map (_.macroApplication.pos) find (_ ne NoPosition) getOrElse NoPosition
 
-  private sealed abstract class MacroExpansionResult
-  private case class Success(expanded: Tree) extends MacroExpansionResult
-  private case class Delay(delayed: Tree) extends MacroExpansionResult
-  private case class Fallback(fallback: Tree) extends MacroExpansionResult { currentRun.seenMacroExpansionsFallingBack = true }
-  private case class Other(result: Tree) extends MacroExpansionResult
+  sealed abstract class MacroExpansionResult
+  case class Success(expanded: Tree) extends MacroExpansionResult
+  case class Delay(delayed: Tree) extends MacroExpansionResult
+  case class Fallback(fallback: Tree) extends MacroExpansionResult { currentRun.seenMacroExpansionsFallingBack = true }
+  case class Other(result: Tree) extends MacroExpansionResult
   private def Skip(expanded: Tree) = Other(expanded)
   private def Cancel(expandee: Tree) = Other(expandee)
   private def Failure(expandee: Tree) = Other(expandee)
@@ -780,7 +780,7 @@ trait Macros extends scala.tools.reflect.FastTrack with Traces {
   /** Does the same as `macroExpand`, but without typechecking the expansion
    *  Meant for internal use within the macro infrastructure, don't use it elsewhere.
    */
-  private def macroExpand1(typer: Typer, expandee: Tree): MacroExpansionResult =
+  def macroExpand1(typer: Typer, expandee: Tree): MacroExpansionResult =
     // verbose printing might cause recursive macro expansions, so I'm shutting it down here
     withInfoLevel(nodePrinters.InfoLevel.Quiet) {
       if (expandee.symbol.isErroneous || (expandee exists (_.isErroneous))) {

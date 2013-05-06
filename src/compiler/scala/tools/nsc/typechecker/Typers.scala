@@ -3421,7 +3421,16 @@ trait Typers extends Modes with Adaptations with Tags {
           // @H change to setError(treeCopy.Apply(tree, fun, args))
 
         case otpe if inPatternMode(mode) && unapplyMember(otpe).exists =>
-          doTypedUnapply(tree, fun0, fun, args, mode, pt)
+          val unapply = unapplyMember(otpe)
+          if (unapply == QuasiquoteClass_q_unapply || unapply == QuasiquoteClass_tq_unapply) {
+            val expandee = treeCopy.Apply(tree, gen.mkAttributedSelect(fun, unapply), args)
+            macroExpand1(this, expandee) match {
+              case Success(expanded) => typed(expanded, mode, pt)
+              case _ => setError(tree)
+            }
+          } else {
+            doTypedUnapply(tree, fun0, fun, args, mode, pt)
+          }
 
         case _ =>
           duplErrorTree(ApplyWithoutArgsError(tree, fun))
