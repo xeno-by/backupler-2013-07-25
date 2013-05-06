@@ -602,6 +602,7 @@ trait StdNames {
     val EmptyPackage: NameType         = "EmptyPackage"
     val EmptyPackageClass: NameType    = "EmptyPackageClass"
     val ExistentialTypeTree: NameType  = "ExistentialTypeTree"
+    val False : NameType               = "False"
     val Flag : NameType                = "Flag"
     val Ident: NameType                = "Ident"
     val Import: NameType               = "Import"
@@ -609,6 +610,7 @@ trait StdNames {
     val LiteralAnnotArg: NameType      = "LiteralAnnotArg"
     val Modifiers: NameType            = "Modifiers"
     val NestedAnnotArg: NameType       = "NestedAnnotArg"
+    val New: NameType                  = "New"
     val NoFlags: NameType              = "NoFlags"
     val NoPrefix: NameType             = "NoPrefix"
     val NoSymbol: NameType             = "NoSymbol"
@@ -624,6 +626,7 @@ trait StdNames {
     val This: NameType                 = "This"
     val ThisType: NameType             = "ThisType"
     val Tree : NameType                = "Tree"
+    val True : NameType                = "True"
     val Tuple2: NameType               = "Tuple2"
     val TYPE_ : NameType               = "TYPE"
     val TypeApply: NameType            = "TypeApply"
@@ -632,6 +635,7 @@ trait StdNames {
     val UNIT : NameType                = "UNIT"
     val add_ : NameType                = "add"
     val annotation: NameType           = "annotation"
+    val annotationRepr: NameType       = "annotationRepr"
     val anyValClass: NameType          = "anyValClass"
     val append: NameType               = "append"
     val apply: NameType                = "apply"
@@ -665,6 +669,7 @@ trait StdNames {
     val ClassManifestFactory: NameType = "ClassManifestFactory"
     val classOf: NameType              = "classOf"
     val clone_ : NameType              = if (forMSIL) "MemberwiseClone" else "clone" // sn.OClone causes checkinit failure
+    val collection: NameType           = "collection"
     val conforms: NameType             = "conforms"
     val copy: NameType                 = "copy"
     val currentMirror: NameType        = "currentMirror"
@@ -691,6 +696,7 @@ trait StdNames {
     val find_ : NameType               = "find"
     val flagsFromBits : NameType       = "flagsFromBits"
     val flatMap: NameType              = "flatMap"
+    val foldLeft: NameType             = "foldLeft"
     val foreach: NameType              = "foreach"
     val genericArrayOps: NameType      = "genericArrayOps"
     val get: NameType                  = "get"
@@ -700,6 +706,7 @@ trait StdNames {
     val hash_ : NameType               = "hash"
     val head: NameType                 = "head"
     val identity: NameType             = "identity"
+    val immutable: NameType            = "immutable"
     val implicitly: NameType           = "implicitly"
     val in: NameType                   = "in"
     val info: NameType                 = "info"
@@ -736,6 +743,7 @@ trait StdNames {
     val newNestedSymbol: NameType      = "newNestedSymbol"
     val newScopeWith: NameType         = "newScopeWith"
     val next: NameType                 = "next"
+    val nmeNme: NameType               = "nme"
     val nmeNewTermName: NameType       = "newTermName"
     val nmeNewTypeName: NameType       = "newTypeName"
     val normalize: NameType            = "normalize"
@@ -847,6 +855,7 @@ trait StdNames {
     val ADD      = encode("+")
     val AND      = encode("&")
     val ASR      = encode(">>")
+    val CONS     = encode("::")
     val DIV      = encode("/")
     val EQ       = encode("==")
     val EQL      = encode("=")
@@ -863,6 +872,7 @@ trait StdNames {
     val NE       = encode("!=")
     val OR       = encode("|")
     val PLUS     = ADD    // technically redundant, but ADD looks funny with MINUS
+    val PLUSPLUS = encode("++")
     val SUB      = MINUS  // ... as does SUB with PLUS
     val XOR      = encode("^")
     val ZAND     = encode("&&")

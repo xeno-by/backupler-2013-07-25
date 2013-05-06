@@ -22,7 +22,8 @@ trait Macros { self: Quasiquotes =>
 
     /** Extracts universe tree, args trees and params strings from macroApplication. */
     def extract = c.macroApplication match {
-      case q"$universe.Quasiquote($stringContext.apply(..$parts0)).${_}.${_}(..$args)" =>
+      // case q"$universe.Quasiquote($stringContext.apply(..$parts0)).${_}.${_}(..$args)" =>
+      case Apply(Select(Select(Apply(Select(universe, _), List(Apply(_, parts0))), _), _), args) =>
         val parts = parts0.map {
           case Literal(Constant(s: String)) => s
           case part => c.abort(part.pos, "Quasiquotes can only be used with constant string arguments.")

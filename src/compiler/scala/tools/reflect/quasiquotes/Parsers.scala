@@ -102,7 +102,8 @@ trait Parsers { self: Quasiquotes =>
       override def isDclIntro: Boolean = super.isDclIntro || (isPlaceholder && ahead { isDclIntro })
 
       def modsPlaceholderAnnot(name: TermName): Tree =
-        q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
+        // q"new ${tpnme.QUASIQUOTE_MODS}(${name.toString})"
+        Apply(Select(New(Ident(tpnme.QUASIQUOTE_MODS)), nme.CONSTRUCTOR), List(Literal(Constant(name.toString))))
 
       // $mods def foo
       // $mods T

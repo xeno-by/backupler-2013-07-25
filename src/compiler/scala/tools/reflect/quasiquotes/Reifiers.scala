@@ -8,7 +8,7 @@ import scala.collection.{immutable, mutable}
 
 trait Reifiers { self: Quasiquotes =>
   import global._
-  import global.Flag._
+  import scala.reflect.internal.Flags._
   import global.treeInfo._
   import global.definitions._
 
@@ -72,7 +72,8 @@ trait Reifiers { self: Quasiquotes =>
     object ModsPlaceholder {
 
       def unapply(tree: Tree): Option[String] = tree match {
-        case q"new ${Ident(tpnme.QUASIQUOTE_MODS)}(${Literal(Constant(s: String))})" =>
+        // case q"new ${Ident(tpnme.QUASIQUOTE_MODS)}(${Literal(Constant(s: String))})" =>
+        case Apply(Select(New(Ident(tpnme.QUASIQUOTE_MODS)), nme.CONSTRUCTOR), List(Literal(Constant(s: String)))) =>
           Some(s)
         case _ =>
           None
@@ -149,14 +150,21 @@ trait Reifiers { self: Quasiquotes =>
         }
 
       def wrapLift(lift: Tree, tree: Tree) =
-        q"$lift($u, $tree).asInstanceOf[$u.Tree]"
+        // q"$lift($u, $tree).asInstanceOf[$u.Tree]"
+        {
+          val lifted = Apply(lift, List(u, tree))
+          val targetType = Select(u, tpnme.Tree)
+          TypeApply(Select(lifted, nme.asInstanceOf_), List(targetType))
+        }
 
       def wrapIterableN(tree: Tree, n: Int)(default: Tree => Tree): Tree = n match {
         case 0 => default(tree)
         case _ =>
           val x: TermName = c.fresh()
           val wrapped = wrapIterableN(Ident(x), n - 1)(default)
-          q"$tree.map { $x => $wrapped }.toList"
+          // q"$tree.map { $x => $wrapped }.toList"
+          val xToWrapped = Function(List(ValDef(Modifiers(PARAM), x, TypeTree(), EmptyTree)), wrapped)
+          Select(Apply(Select(tree, nme.map), List(xToWrapped)), nme.toList)
       }
 
       object LiftableType {
@@ -200,12 +208,20 @@ trait Reifiers { self: Quasiquotes =>
     }
 
     override def reifyBasicTree(tree: Tree): Tree = tree match {
-      case Literal(Constant(true)) => q"$u.build.True"
-      case Literal(Constant(false)) => q"$u.build.False"
+      // case Literal(Constant(true)) => q"$u.build.True"
+      // case Literal(Constant(false)) => q"$u.build.False"
+      case Literal(Constant(true)) => Select(Select(u, nme.build), nme.True)
+      case Literal(Constant(false)) => Select(Select(u, nme.build), nme.False)
       case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< treeType => tree
       case Apply(f, List(Placeholder(CorrespondsTo(argss, tpe)))) if tpe <:< iterableIterableTreeType =>
         val f1 = reifyTree(f)
-        q"$argss.foldLeft[$u.Tree]($f1) { $u.Apply(_, _) }"
+        // q"$argss.foldLeft[$u.Tree]($f1) { $u.Apply(_, _) }"
+        val foldLeftF1 = Apply(TypeApply(Select(argss, nme.foldLeft), List(Select(u, tpnme.Tree))), List(f1))
+        def syntheticParam(name: TermName) = ValDef(Modifiers(PARAM | SYNTHETIC), name, TypeTree(), EmptyTree)
+        val uDotApply = Function(
+          List(syntheticParam(nme.x_1), syntheticParam(nme.x_2)),
+          Apply(Select(u, nme.Apply), List(Ident(nme.x_1), Ident(nme.x_2))))
+        Apply(foldLeftF1, List(uDotApply))
       case Block(stats, p @ Placeholder(CorrespondsTo(tree, tpe))) =>
         mirrorBuildCall("Block", reifyList(stats :+ p))
       case Placeholder(name) if placeholders(name)._2 > 0 =>
@@ -263,7 +279,8 @@ trait Reifiers { self: Quasiquotes =>
             case elems => mkList(elems.map(fallback))
           }
           val head :: tail = group(xs) { (a, b) => !fill.isDefinedAt(a) && !fill.isDefinedAt(b) }
-          tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
+          // tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => q"$tree ++ ${reifyGroup(lst)}" }
+          tail.foldLeft[Tree](reifyGroup(head)) { (tree, lst) => Apply(Select(tree, nme.PLUSPLUS), List(reifyGroup(lst))) }
       }
 
     /** Reifies arbitrary list filling ..$x and ...$y placeholders when they are put
@@ -283,10 +300,15 @@ trait Reifiers { self: Quasiquotes =>
     def reifyAnnotsList(annots: List[Tree]): Tree = reifyListGeneric(annots) {
       case AnnotPlaceholder(CorrespondsTo(tree, tpe), args) if tpe <:< iterableTreeType =>
         val x: TermName = c.fresh()
-        q"$tree.map { $x => $u.build.annotationRepr($x, ${reify(args)}) }"
+        // q"$tree.map { $x => $u.build.annotationRepr($x, ${reify(args)}) }"
+        val xToAnnotationRepr = Function(
+          List(ValDef(Modifiers(PARAM), x, TypeTree(), EmptyTree)),
+          Apply(Select(Select(u, nme.build), nme.annotationRepr), List(Ident(x), reify(args))))
+        Apply(Select(tree, nme.map), List(xToAnnotationRepr))
     } {
       case AnnotPlaceholder(CorrespondsTo(tree, tpe), args) if tpe <:< treeType =>
-        q"$u.build.annotationRepr($tree, ${reify(args)})"
+        // q"$u.build.annotationRepr($tree, ${reify(args)})"
+        Apply(Select(Select(u, nme.build), nme.annotationRepr), List(tree, reify(args)))
       case other => reify(other)
     }
 
@@ -314,7 +336,8 @@ trait Reifiers { self: Quasiquotes =>
         tree
       } else {
         val baseFlags = mirrorBuildCall(nme.flagsFromBits, reify(m.flags))
-        val reifiedFlags = flags.foldLeft[Tree](baseFlags) { case (flag, (tree, _)) => q"$flag | $tree" }
+        // val reifiedFlags = flags.foldLeft[Tree](baseFlags) { case (flag, (tree, _)) => q"$flag | $tree" }
+        val reifiedFlags = flags.foldLeft[Tree](baseFlags) { case (flag, (tree, _)) => Apply(Select(flag, nme.OR), List(tree)) }
         mirrorFactoryCall(nme.Modifiers, reifiedFlags, reify(m.privateWithin), reifyAnnotsList(annots))
       }
     }
@@ -327,9 +350,11 @@ trait Reifiers { self: Quasiquotes =>
 
     override def reifyBasicTree(tree: Tree): Tree = tree match {
       case Ident(PlaceholderName(CorrespondsTo(sym, tpe))) if tpe <:< symbolType =>
-        q"$u.Ident($sym)"
+        // q"$u.Ident($sym)"
+        Apply(Select(u, nme.Ident), List(sym))
       case Select(tree, PlaceholderName(CorrespondsTo(sym, tpe))) if tpe <:< symbolType =>
-        q"$u.Select(${reifyTree(tree)}, $sym)"
+        // q"$u.Select(${reifyTree(tree)}, $sym)"
+        Apply(Select(u, nme.Select), List(reifyTree(tree), sym))
       case _ =>
         super.reifyBasicTree(tree)
     }
@@ -376,7 +401,9 @@ trait Reifiers { self: Quasiquotes =>
       xs match {
         case init :+ last if fill.isDefinedAt(last) =>
           init.foldRight[Tree](fill(last)) { (el, rest) =>
-            q"scala.collection.immutable.$$colon$$colon(${fallback(el)}, $rest)"
+            // q"scala.collection.immutable.$$colon$$colon(${fallback(el)}, $rest)"
+            val cons = Select(Select(Select(Ident(nme.scala_), nme.collection), nme.immutable), nme.CONS)
+            Apply(cons, List(fallback(el), rest))
           }
         case _ =>
           mkList(xs.map(fallback))
@@ -395,7 +422,10 @@ trait Reifiers { self: Quasiquotes =>
       case AnnotPlaceholder(CorrespondsTo(tree, 0), args) =>
         args match {
           case Nil => tree
-          case _ => q"$u.Apply($u.Select($u.New($tree), $u.nme.CONSTRUCTOR), ${reify(args)})"
+          // case _ => q"$u.Apply($u.Select($u.New($tree), $u.nme.CONSTRUCTOR), ${reify(args)})"
+          case _ =>
+            val selectCONSTRUCTOR = Apply(Select(u, nme.Select), List(Apply(Select(u, nme.New), List(tree)), Select(Select(u, nme.nmeNme), nme.nmeCONSTRUCTOR)))
+            Apply(Select(u, nme.Apply), List(selectCONSTRUCTOR, reify(args)))
         }
       case other =>
         reify(other)
