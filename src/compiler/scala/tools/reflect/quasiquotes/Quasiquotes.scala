@@ -5,7 +5,8 @@ import scala.reflect.macros.runtime.Context
 
 abstract class Quasiquotes extends Macros
                               with Parsers
-                              with Reifiers  {
+                              with Reifiers
+                              with Compat {
   val c: Context
   val global: c.universe.type = c.universe
   import c.universe._
