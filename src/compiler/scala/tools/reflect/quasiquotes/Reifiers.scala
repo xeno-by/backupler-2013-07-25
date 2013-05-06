@@ -114,8 +114,8 @@ trait Reifiers { self: Quasiquotes =>
 
     // NOTE: cannot add new constructors/extractors to scala.reflect.api.BuildUtils because of compatibility constraints
     // therefore we have to externalize the calls to new methods. also see the same note for Liftable for more information
-    def mirrorQuasiquoteUtilsBuildCall(name: TermName, args: Tree*): Tree =
-      Apply(Select(Ident(nme.quasiquoteUtils), name), args.toList)
+    def mirrorQuasiquoteCompatBuildCall(name: TermName, args: Tree*): Tree =
+      Apply(Select(Ident(nme.quasiquoteCompat), name), args.toList)
   }
 
   class ApplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
@@ -181,7 +181,7 @@ trait Reifiers { self: Quasiquotes =>
           // of this scalac fork, we can afford to be less robust
           // val liftType = appliedType(liftableType, List(tpe))
           import analyzer._
-          val liftTypeTree = AppliedTypeTree(Select(Ident(nme.quasiquoteUtils), tpnme.Liftable), List(TypeTree(tpe)))
+          val liftTypeTree = AppliedTypeTree(Select(Ident(nme.quasiquoteCompat), tpnme.Liftable), List(TypeTree(tpe)))
           c.callsiteTyper.silent(_.typed(liftTypeTree, TYPEmode, WildcardType)) match {
             case SilentResultValue(liftTypeTree) =>
               val liftType = liftTypeTree.tpe
@@ -228,14 +228,14 @@ trait Reifiers { self: Quasiquotes =>
           Apply(Select(u, nme.Apply), List(Ident(nme.x_1), Ident(nme.x_2))))
         Apply(foldLeftF1, List(uDotApply))
       case Block(stats, p @ Placeholder(CorrespondsTo(tree, tpe))) =>
-        mirrorQuasiquoteUtilsBuildCall("Block", reifyList(stats :+ p))
+        mirrorQuasiquoteCompatBuildCall("Block", reifyList(stats :+ p))
       case Placeholder(name) if placeholders(name)._2 > 0 =>
         val (tree, card) = placeholders(name)
         c.abort(tree.pos, s"Can't splice tree with '${fmtCard(card)}' cardinality in this position.")
       case SyntacticClassDef(mods, name, tparams, constrmods, vparamss, argss, parents, selfval, body) =>
-        mirrorQuasiquoteUtilsBuildCall("SyntacticClassDef", reifyModifiers(mods), reifyName(name),
-                                       reifyList(tparams), reifyModifiers(constrmods), reifyList(vparamss), reifyList(argss),
-                                       reifyList(parents), reifyTree(selfval), reifyList(body))
+        mirrorQuasiquoteCompatBuildCall("SyntacticClassDef", reifyModifiers(mods), reifyName(name),
+                                        reifyList(tparams), reifyModifiers(constrmods), reifyList(vparamss), reifyList(argss),
+                                        reifyList(parents), reifyTree(selfval), reifyList(body))
       case _ =>
         super.reifyBasicTree(tree)
     }
@@ -308,12 +308,12 @@ trait Reifiers { self: Quasiquotes =>
         // q"$tree.map { $x => $u.build.annotationRepr($x, ${reify(args)}) }"
         val xToAnnotationRepr = Function(
           List(ValDef(Modifiers(PARAM), x, TypeTree(), EmptyTree)),
-          mirrorQuasiquoteUtilsBuildCall(nme.annotationRepr, Ident(x), reify(args)))
+          mirrorQuasiquoteCompatBuildCall(nme.annotationRepr, Ident(x), reify(args)))
         Apply(Select(tree, nme.map), List(xToAnnotationRepr))
     } {
       case AnnotPlaceholder(CorrespondsTo(tree, tpe), args) if tpe <:< treeType =>
         // q"$u.build.annotationRepr($tree, ${reify(args)})"
-        mirrorQuasiquoteUtilsBuildCall(nme.annotationRepr, tree, reify(args))
+        mirrorQuasiquoteCompatBuildCall(nme.annotationRepr, tree, reify(args))
       case other => reify(other)
     }
 
@@ -374,20 +374,20 @@ trait Reifiers { self: Quasiquotes =>
 
     override def reifyBasicTree(tree: Tree): Tree = tree match {
       case global.emptyValDef =>
-        mirrorQuasiquoteUtilsBuildCall("EmptyValDefLike")
+        mirrorQuasiquoteCompatBuildCall("EmptyValDefLike")
       case Placeholder(CorrespondsTo(tree, card)) =>
         if (card > 0)
           c.abort(tree.pos, s"Can't extract a part of the tree with '${fmtCard(card)}' cardinality in this position.")
         tree
       case Applied(fun, targs, argss) if fun != tree =>
         if (targs.length > 0)
-          mirrorQuasiquoteUtilsBuildCall("Applied", reify(fun), reifyList(targs), reifyList(argss))
+          mirrorQuasiquoteCompatBuildCall("Applied", reify(fun), reifyList(targs), reifyList(argss))
         else
-          mirrorQuasiquoteUtilsBuildCall("Applied2", reify(fun), reifyList(argss))
+          mirrorQuasiquoteCompatBuildCall("Applied2", reify(fun), reifyList(argss))
       case SyntacticClassDef(mods, name, tparams, constrmods, vparamss, argss, parents, selfval, body) =>
-        mirrorQuasiquoteUtilsBuildCall("SyntacticClassDef", reifyModifiers(mods), reifyName(name),
-                                       reifyList(tparams), reifyModifiers(constrmods), reifyList(vparamss), reifyList(argss),
-                                       reifyList(parents), reifyTree(selfval), reifyList(body))
+        mirrorQuasiquoteCompatBuildCall("SyntacticClassDef", reifyModifiers(mods), reifyName(name),
+                                        reifyList(tparams), reifyModifiers(constrmods), reifyList(vparamss), reifyList(argss),
+                                        reifyList(parents), reifyTree(selfval), reifyList(body))
       case _ =>
         super.reifyBasicTree(tree)
     }
@@ -398,7 +398,7 @@ trait Reifiers { self: Quasiquotes =>
     override def reifyName(name: Name): Tree =
       if (!placeholders.contains(name.toString)) {
         val factory = if (name.isTypeName) nme.TypeName else nme.TermName
-        mirrorQuasiquoteUtilsBuildCall(factory, Literal(Constant(name.toString)))
+        mirrorQuasiquoteCompatBuildCall(factory, Literal(Constant(name.toString)))
       } else {
         placeholders(name.toString)._1
       }
@@ -448,8 +448,8 @@ trait Reifiers { self: Quasiquotes =>
         requireNoInlineFlags(m, tree.pos, "extract")
         tree
       } else
-        mirrorQuasiquoteUtilsBuildCall(nme.Modifiers, mirrorQuasiquoteUtilsBuildCall("FlagsAsBits", reify(m.flags)),
-                                      reify(m.privateWithin), reifyAnnotsList(m.annotations))
+        mirrorQuasiquoteCompatBuildCall(nme.Modifiers, mirrorQuasiquoteCompatBuildCall("FlagsAsBits", reify(m.flags)),
+                                        reify(m.privateWithin), reifyAnnotsList(m.annotations))
     }
   }
 

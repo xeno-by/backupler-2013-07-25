@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
 
 class QuasiquoteProperties(name: String) extends Properties(name) with ArbitraryTreesAndNames {
 
-  val quasiquoteUtils = QuasiquoteUtils
+  val quasiquoteCompat = QuasiquoteCompat
 
   /** Runs a code block and returns proof confirmation
    *  if no exception has been thrown while executing code

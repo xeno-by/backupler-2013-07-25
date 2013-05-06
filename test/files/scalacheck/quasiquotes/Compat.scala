@@ -1,7 +1,7 @@
 import scala.reflect.api.{Universe => ApiUniverse}
 
-// class QuasiquoteUtils[U <: ApiUniverse](val u: U) {
-class QuasiquoteUtils(val u: scala.reflect.runtime.universe.type) {
+// class QuasiquoteCompat[U <: ApiUniverse](val u: U) {
+class QuasiquoteCompat(val u: scala.reflect.runtime.universe.type) {
   import u._
   import Flag._
 
@@ -394,5 +394,5 @@ class QuasiquoteUtils(val u: scala.reflect.runtime.universe.type) {
 }
 
 import scala.reflect.runtime.{universe => ru}
-// object QuasiquoteUtils extends QuasiquoteUtils[ru.type](ru)
-object QuasiquoteUtils extends QuasiquoteUtils(ru)
+// object QuasiquoteCompat extends QuasiquoteCompat[ru.type](ru)
+object QuasiquoteCompat extends QuasiquoteCompat(ru)

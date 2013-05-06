@@ -762,7 +762,7 @@ trait StdNames {
     val productIterator: NameType      = "productIterator"
     val productPrefix: NameType        = "productPrefix"
     val q: NameType                    = "q"
-    val quasiquoteUtils: NameType      = "quasiquoteUtils"
+    val quasiquoteCompat: NameType     = "quasiquoteCompat"
     val readResolve: NameType          = "readResolve"
     val reflect : NameType             = "reflect"
     val reify : NameType               = "reify"
