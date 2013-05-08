@@ -141,6 +141,30 @@ trait BuildUtils { self: SymbolTable =>
       }
     }
 
+    object TupleN extends TupleNExtractor {
+      import definitions.{TupleClass, MaxTupleArity, ScalaPackage}
+
+      def apply(args: List[Tree]): Tree = args match {
+        case Nil      => q"()"
+        case _        =>
+          require(args.length <= MaxTupleArity, s"Tuples with arity bigger than $MaxTupleArity aren't supported")
+          self.Apply(TupleClass(args.length).companionModule, args: _*)
+      }
+
+      def unapply(tree: Tree): Option[List[Tree]] = tree match {
+        case Literal(Constant(())) =>
+          Some(List())
+        case Apply(id: Ident, args)
+          if args.length <= MaxTupleArity && id.symbol == TupleClass(args.length).companionModule=>
+          Some(args)
+        case Apply(Select(id @ Ident(nme.scala_), TermName(tuple)), args)
+          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == "Tuple" + args.length =>
+          Some(args)
+        case _ =>
+          None
+      }
+    }
+
     def True  = setType(Literal(Constant(true)), ConstantType(Constant(true)))
     def False = setType(Literal(Constant(false)), ConstantType(Constant(false)))
   }

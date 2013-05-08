@@ -83,6 +83,21 @@ object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction
     assert(tparams.map { _.name } == List(TypeName("A"), TypeName("B")))
   }
 
+  property("deconstruct unit as tuple") = test {
+    val q"(..$xs)" = q"()"
+    assert(xs.isEmpty)
+  }
+
+  property("deconstruct tuple") = test {
+    val q"(..$xs)" = q"(a, b)"
+    assert(xs ≈ List(q"a", q"b"))
+  }
+
+  property("deconstruct tuple mixed") = test {
+    val q"($first, ..$rest)" = q"(a, b, c)"
+    assert(first ≈ q"a" && rest ≈ List(q"b", q"c"))
+  }
+
   // TODO: FIX ME
   // property("trait deconstruction") = test {
   //   val q"trait $name { ..$body }" = q"trait Foo { def foo }"

@@ -191,20 +191,29 @@ trait Reifiers { self: Quasiquotes =>
       case Literal(Constant(true)) => q"$u.build.True"
       case Literal(Constant(false)) => q"$u.build.False"
       case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< treeType => tree
+      case Apply(Ident(nme.QUASIQUOTE_TUPLE), args) => reifyTuple(args)
       case Apply(f, List(Placeholder(CorrespondsTo(argss, tpe)))) if tpe <:< iterableIterableTreeType =>
         val f1 = reifyTree(f)
         q"$argss.foldLeft[$u.Tree]($f1) { $u.Apply(_, _) }"
       case Block(stats, p @ Placeholder(CorrespondsTo(tree, tpe))) =>
         mirrorBuildCall("Block", reifyList(stats :+ p))
-      case Placeholder(name) if placeholders(name)._2 > 0 =>
-        val (tree, card) = placeholders(name)
-        c.abort(tree.pos, s"Can't splice tree with '${fmtCard(card)}' cardinality in this position.")
       case SyntacticalClassDef(mods, name, tparams, constrmods, argss, parents, selfval, body) =>
         mirrorBuildCall("SyntacticalClassDef", reifyModifiers(mods), reifyName(name),
                         reifyList(tparams), reifyModifiers(constrmods), reifyList(argss),
                         reifyList(parents), reifyTree(selfval), reifyList(body))
+      case Placeholder(name) if placeholders(name)._2 > 0 =>
+        val (tree, card) = placeholders(name)
+        c.abort(tree.pos, s"Can't splice tree with '${fmtCard(card)}' cardinality in this position.")
       case _ =>
         super.reifyBasicTree(tree)
+    }
+
+    def reifyTuple(args: List[Tree]) = args match {
+      case Nil => reify(q"()")
+      case List(hole @ Placeholder(CorrespondsTo(tree, tpe))) if !(tpe <:< iterableType) => reify(hole)
+      case List(Placeholder(_)) => mirrorBuildCall("TupleN", reifyList(args))
+      case List(other) => reify(other)
+      case _ => mirrorBuildCall("TupleN", reifyList(args))
     }
 
     override def reifyName(name: Name): Tree = name match {
@@ -339,6 +348,7 @@ trait Reifiers { self: Quasiquotes =>
         if (card > 0)
           c.abort(tree.pos, s"Can't extract a part of the tree with '${fmtCard(card)}' cardinality in this position.")
         tree
+      case Apply(Ident(nme.QUASIQUOTE_TUPLE), args) => reifyTuple(args)
       case Applied(fun, targs, argss) if fun != tree =>
         if (targs.length > 0)
           mirrorBuildCall("Applied", reify(fun), reifyList(targs), reifyList(argss))
@@ -350,6 +360,14 @@ trait Reifiers { self: Quasiquotes =>
                         reifyList(parents), reifyTree(selfval), reifyList(body))
       case _ =>
         super.reifyBasicTree(tree)
+    }
+
+    def reifyTuple(args: List[Tree]) = args match {
+      case Nil => reify(q"()")
+      case List(hole @ Placeholder(CorrespondsTo(tree, 0))) => reify(hole)
+      case List(Placeholder(CorrespondsTo(tree, card))) => mirrorBuildCall("TupleN", reifyList(args))
+      case List(other) => reify(other)
+      case _ => mirrorBuildCall("TupleN", reifyList(args))
     }
 
     override def scalaFactoryCall(name: String, args: Tree*): Tree =

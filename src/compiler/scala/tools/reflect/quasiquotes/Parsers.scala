@@ -43,9 +43,12 @@ trait Parsers { self: Quasiquotes =>
       // q"def foo($x)"
       override def allowTypelessParams = true
 
+      // q"(..$xs)"
+      override def makeTupleTerm(trees: List[Tree], flattenUnary: Boolean): Tree =
+        Apply(Ident(nme.QUASIQUOTE_TUPLE), trees)
+
       // q"{ $x }"
-      override def block(): Tree = makeBlock(blockStatSeq())
-      private def makeBlock(stats: List[Tree]): Tree =
+      override def makeBlock(stats: List[Tree]): Tree =
         if (stats.isEmpty) Literal(Constant())
         else if (!stats.last.isTerm) Block(stats, Literal(Constant()))
         else if (stats.length == 1) stats match {
@@ -55,7 +58,7 @@ trait Parsers { self: Quasiquotes =>
 
       // q"foo match { $x }"
       override def caseClauses(): List[CaseDef] = {
-        val cases = caseSeparated { atPos(in.offset)(treeBuilder.makeCaseDef(pattern(), guard(), caseBlock())) }
+        val cases = caseSeparated { atPos(in.offset)(makeCaseDef(pattern(), guard(), caseBlock())) }
         if (cases.isEmpty) {
           if (in.token == IDENTIFIER && placeholders(in.name.toString)) ???
           else accept(CASE) // trigger error if there are no cases and noone gets spliced

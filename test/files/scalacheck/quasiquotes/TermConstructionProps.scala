@@ -330,4 +330,22 @@ object TermConstructionProps extends QuasiquoteProperties("term construction") {
       q"@$a(y) def foo"
     }
   }
+
+  property("splice term into brackets") = test {
+    val a = q"a"
+    assert(q"($a)" ≈ a)
+  }
+
+  property("splice terms into tuple") = test {
+    val a1 = q"a1"
+    val a2 = q"a2"
+    val as = List(a1, a2)
+    assert(q"(..$as)" ≈ q"Tuple2($a1, $a2)")
+    assert(q"(a0, ..$as)" ≈ q"Tuple3(a0, $a1, $a2)")
+  }
+
+  property("splcie empty list into tuple") = test {
+    val empty = List[Tree]()
+    assert(q"(..$empty)" ≈ q"()")
+  }
 }

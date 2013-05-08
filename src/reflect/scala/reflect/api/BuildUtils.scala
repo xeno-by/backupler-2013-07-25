@@ -117,6 +117,13 @@ private[reflect] trait BuildUtils { self: Universe =>
                                        List[List[ValDef]], List[Tree], ValDef, List[Tree])]
     }
 
+    val TupleN: TupleNExtractor
+
+    trait TupleNExtractor {
+      def apply(args: List[Tree]): Tree
+      def unapply(tree: Tree): Option[List[Tree]]
+    }
+
     def True: Tree
     def False: Tree
   }
