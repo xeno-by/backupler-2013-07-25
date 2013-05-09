@@ -24,22 +24,12 @@ and  method foo in object Impls5 of type (c: scala.reflect.macros.Context)(x: c.
 match expected type ?
   def foo(x: Any) = macro Impls5.foo
                                  ^
-Macros_Test_2.scala:26: error: macro implementation reference has wrong shape. required:
-macro [<static object>].<method name>[[<type args>]] or
-macro [<macro bundle>].<method name>[[<type args>]]
-  def foo(x: Any) = macro Impls5.foo
-      ^
 Macros_Test_2.scala:27: error: ambiguous reference to overloaded definition,
 both method foo in object Impls5 of type (c: scala.reflect.macros.Context)(x: c.Expr[Any], y: c.Expr[Any])Nothing
 and  method foo in object Impls5 of type (c: scala.reflect.macros.Context)(x: c.Expr[Any])Nothing
 match expected type ?
   def foo(x: Any, y: Any) = macro Impls5.foo
                                          ^
-Macros_Test_2.scala:27: error: macro implementation reference has wrong shape. required:
-macro [<static object>].<method name>[[<type args>]] or
-macro [<macro bundle>].<method name>[[<type args>]]
-  def foo(x: Any, y: Any) = macro Impls5.foo
-      ^
 Macros_Test_2.scala:31: error: macro implementation has wrong shape:
  required: (c: scala.reflect.macros.Context): c.Expr[Unit]
  found   : (c: scala.reflect.macros.Context)(): c.Expr[Unit]
@@ -58,4 +48,4 @@ Macros_Test_2.scala:36: error: type arguments [String] do not conform to method 
 Macros_Test_2.scala:53: error: macro implementation must be public
     def foo = macro Impls8.impl
         ^
-12 errors found
+10 errors found
