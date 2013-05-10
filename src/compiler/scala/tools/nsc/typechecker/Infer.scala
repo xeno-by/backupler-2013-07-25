@@ -90,7 +90,7 @@ trait Infer extends Checkable {
    */
   def extractorFormalTypes(pos: Position, resTp: Type, nbSubPats: Int,
                            unappSym: Symbol, effectiveNbSubPats: Int): (List[Type], List[Type]) = {
-    val isUnapplySeq     = unappSym.name == nme.unapplySeq
+    val isUnapplySeq     = unappSym != null && unappSym.name == nme.unapplySeq
     val booleanExtractor = resTp.typeSymbolDirect == BooleanClass
 
     def seqToRepeatedChecked(tp: Type) = {

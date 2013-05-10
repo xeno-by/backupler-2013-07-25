@@ -574,13 +574,28 @@ trait MatchTranslation { self: PatternMatching  =>
     }
 
     class ExtractorCallRegular(extractorCallIncludingDummy: Tree, args: List[Tree]) extends ExtractorCall(args) {
-      private lazy val Some(Apply(extractorCall, _)) = extractorCallIncludingDummy.find{ case Apply(_, List(Ident(nme.SELECTOR_DUMMY))) => true case _ => false }
+      private lazy val extractorCall = {
+        val vanilla = extractorCallIncludingDummy.find{ case Apply(_, List(Ident(nme.SELECTOR_DUMMY))) => true; case _ => false }
+        vanilla match {
+          case Some(Apply(extractorCall, _)) => extractorCall
+          case _ => null
+        }
+      }
 
-      def tpe        = extractorCall.tpe
-      def isTyped    = (tpe ne NoType) && extractorCall.isTyped && (resultInMonad ne ErrorType)
-      def paramType  = tpe.paramTypes.head
+      def tpe        = {
+        val qqq = if (extractorCall != null) extractorCall.tpe else extractorCallIncludingDummy.tpe
+        // println(qqq)
+        qqq
+      }
+      def isTyped    = {
+        // println(tpe ne NoType)
+        // println(extractorCall == null || extractorCall.isTyped)
+        // println(resultInMonad ne ErrorType)
+        (tpe ne NoType) && (extractorCall == null || extractorCall.isTyped) && (resultInMonad ne ErrorType)
+      }
+      def paramType  = if (extractorCall != null) tpe.paramTypes.head else tpe.typeArgs.head.typeArgs.head
       def resultType = tpe.finalResultType
-      def isSeq      = extractorCall.symbol.name == nme.unapplySeq
+      def isSeq      = extractorCall != null && extractorCall.symbol.name == nme.unapplySeq
 
       /** Create the TreeMaker that embodies this extractor call
        *
@@ -612,8 +627,10 @@ trait MatchTranslation { self: PatternMatching  =>
       protected def spliceApply(binder: Symbol): Tree = {
         object splice extends Transformer {
           override def transform(t: Tree) = t match {
-            case Apply(x, List(i @ Ident(nme.SELECTOR_DUMMY))) =>
+            case Apply(x, List(i @ Ident(nme.SELECTOR_DUMMY))) if extractorCall != null =>
               treeCopy.Apply(t, x, List(CODE.REF(binder).setPos(i.pos)))
+            case i @ Ident(nme.SELECTOR_DUMMY) if extractorCall == null =>
+              CODE.REF(binder).setPos(i.pos)
             case _ => super.transform(t)
           }
         }
@@ -622,10 +639,15 @@ trait MatchTranslation { self: PatternMatching  =>
 
       // what's the extractor's result type in the monad?
       // turn an extractor's result type into something `monadTypeToSubPatTypesAndRefs` understands
-      protected lazy val resultInMonad: Type = if(!hasLength(tpe.paramTypes, 1)) ErrorType else {
-        if (resultType.typeSymbol == BooleanClass) UnitClass.tpe
-        else matchMonadResult(resultType)
-      }
+      protected lazy val resultInMonad: Type =
+        if (extractorCall != null) {
+          if (!hasLength(tpe.paramTypes, 1)) ErrorType else {
+            if (resultType.typeSymbol == BooleanClass) UnitClass.tpe
+            else matchMonadResult(resultType)
+          }
+        } else {
+          matchMonadResult(resultType)
+        }
 
       protected lazy val rawSubPatTypes =
         if (resultInMonad.typeSymbol eq UnitClass) Nil
@@ -635,7 +657,7 @@ trait MatchTranslation { self: PatternMatching  =>
           case x   => x
         }
 
-      override def toString() = extractorCall +": "+ extractorCall.tpe +" (symbol= "+ extractorCall.symbol +")."
+      override def toString() = if (extractorCall != null) (extractorCall +": "+ extractorCall.tpe +" (symbol= "+ extractorCall.symbol +").") else "<foo>"
     }
 
     /** A conservative approximation of which patterns do not discern anything.
