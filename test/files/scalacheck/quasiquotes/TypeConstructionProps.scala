@@ -23,4 +23,12 @@ object TypeConstructionProps extends QuasiquoteProperties("type construction")  
   property("dependent type tree multiple args") = forAll { (name: TypeName, args: List[Tree]) =>
     tq"$name(..$args)" ≈ DependentTypeTree(Ident(name), args)
   }
+
+  property("tuple type") = test {
+    val empty = List[Tree]()
+    val ts = List(tq"t1", tq"t2")
+    assert(tq"(..$empty)" ≈ tq"scala.Unit")
+    assert(tq"(..$ts)" ≈ tq"Tuple2[t1, t2]")
+    assert(tq"(t0, ..$ts)" ≈ tq"Tuple3[t0, t1, t2]")
+  }
 }

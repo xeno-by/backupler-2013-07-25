@@ -241,6 +241,7 @@ trait StdNames {
     final val Tuple: NameType               = "Tuple"
     final val Universe: NameType            = "Universe"
     final val Quasiquote: NameType          = "Quasiquote"
+    final val QUASIQUOTE_TUPLE_TYPE: NameType = "$quasiquote$tuple$"
 
     // Annotation simple names, used in Namer
     final val BeanPropertyAnnot: NameType = "BeanProperty"

@@ -4,6 +4,7 @@ package internal
 import Flags._
 
 trait BuildUtils { self: SymbolTable =>
+  import definitions.{TupleClass, MaxTupleArity, ScalaPackage, UnitClass}
 
   class BuildImpl extends BuildApi {
 
@@ -142,7 +143,6 @@ trait BuildUtils { self: SymbolTable =>
     }
 
     object TupleN extends TupleNExtractor {
-      import definitions.{TupleClass, MaxTupleArity, ScalaPackage}
 
       def apply(args: List[Tree]): Tree = args match {
         case Nil      => q"()"
@@ -158,6 +158,29 @@ trait BuildUtils { self: SymbolTable =>
           if args.length <= MaxTupleArity && id.symbol == TupleClass(args.length).companionModule=>
           Some(args)
         case Apply(Select(id @ Ident(nme.scala_), TermName(tuple)), args)
+          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == "Tuple" + args.length =>
+          Some(args)
+        case _ =>
+          None
+      }
+    }
+
+    object TupleTypeN extends TupleNExtractor {
+
+      def apply(args: List[Tree]): Tree = args match {
+        case Nil      => tq"scala.Unit"
+        case _        =>
+          require(args.length <= MaxTupleArity, s"Tuples with arity bigger than $MaxTupleArity aren't supported")
+          AppliedTypeTree(Ident(TupleClass(args.length)), args)
+      }
+
+      def unapply(tree: Tree): Option[List[Tree]] =  tree match {
+        case Select(Ident(nme.scala_), tpnme.Unit) =>
+          Some(List())
+        case AppliedTypeTree(id: Ident, args)
+          if args.length <= MaxTupleArity && id.symbol == TupleClass(args.length) =>
+          Some(args)
+        case AppliedTypeTree(Select(id @ Ident(nme.scala_), TermName(tuple)), args)
           if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == "Tuple" + args.length =>
           Some(args)
         case _ =>

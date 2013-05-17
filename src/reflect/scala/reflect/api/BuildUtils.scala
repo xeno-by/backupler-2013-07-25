@@ -118,6 +118,7 @@ private[reflect] trait BuildUtils { self: Universe =>
     }
 
     val TupleN: TupleNExtractor
+    val TupleTypeN: TupleNExtractor
 
     trait TupleNExtractor {
       def apply(args: List[Tree]): Tree

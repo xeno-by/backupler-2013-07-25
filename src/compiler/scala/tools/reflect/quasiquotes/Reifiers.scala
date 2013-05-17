@@ -191,6 +191,7 @@ trait Reifiers { self: Quasiquotes =>
       case Literal(Constant(true)) => q"$u.build.True"
       case Literal(Constant(false)) => q"$u.build.False"
       case Placeholder(CorrespondsTo(tree, tpe)) if tpe <:< treeType => tree
+      case AppliedTypeTree(Ident(tpnme.QUASIQUOTE_TUPLE_TYPE), args) => reifyTupleType(args)
       case Apply(Ident(nme.QUASIQUOTE_TUPLE), args) => reifyTuple(args)
       case Apply(f, List(Placeholder(CorrespondsTo(argss, tpe)))) if tpe <:< iterableIterableTreeType =>
         val f1 = reifyTree(f)
@@ -214,6 +215,14 @@ trait Reifiers { self: Quasiquotes =>
       case List(Placeholder(_)) => mirrorBuildCall("TupleN", reifyList(args))
       case List(other) => reify(other)
       case _ => mirrorBuildCall("TupleN", reifyList(args))
+    }
+
+    def reifyTupleType(args: List[Tree]) = args match {
+      case Nil => reify(tq"scala.Unit")
+      case List(hole @ Placeholder(CorrespondsTo(tree, tpe))) if !(tpe <:< iterableType) => reify(hole)
+      case List(Placeholder(_)) => mirrorBuildCall("TupleTypeN", reifyList(args))
+      case List(other) => reify(other)
+      case _ => mirrorBuildCall("TupleTypeN", reifyList(args))
     }
 
     override def reifyName(name: Name): Tree = name match {
@@ -348,6 +357,7 @@ trait Reifiers { self: Quasiquotes =>
         if (card > 0)
           c.abort(tree.pos, s"Can't extract a part of the tree with '${fmtCard(card)}' cardinality in this position.")
         tree
+      case AppliedTypeTree(Ident(tpnme.QUASIQUOTE_TUPLE_TYPE), args) => reifyTupleType(args)
       case Apply(Ident(nme.QUASIQUOTE_TUPLE), args) => reifyTuple(args)
       case Applied(fun, targs, argss) if fun != tree =>
         if (targs.length > 0)
@@ -368,6 +378,14 @@ trait Reifiers { self: Quasiquotes =>
       case List(Placeholder(CorrespondsTo(tree, card))) => mirrorBuildCall("TupleN", reifyList(args))
       case List(other) => reify(other)
       case _ => mirrorBuildCall("TupleN", reifyList(args))
+    }
+
+    def reifyTupleType(args: List[Tree]) = args match {
+      case Nil => reify(tq"scala.Unit")
+      case List(hole @ Placeholder(CorrespondsTo(tree, 0))) => reify(hole)
+      case List(Placeholder(CorrespondsTo(tree, card))) => mirrorBuildCall("TupleTypeN", reifyList(args))
+      case List(other) => reify(other)
+      case _ => mirrorBuildCall("TupleTypeN", reifyList(args))
     }
 
     override def scalaFactoryCall(name: String, args: Tree*): Tree =

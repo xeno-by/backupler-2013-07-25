@@ -47,6 +47,10 @@ trait Parsers { self: Quasiquotes =>
       override def makeTupleTerm(trees: List[Tree], flattenUnary: Boolean): Tree =
         Apply(Ident(nme.QUASIQUOTE_TUPLE), trees)
 
+      // tq"(..$xs)"
+      override def makeTupleType(trees: List[Tree], flattenUnary: Boolean): Tree =
+        AppliedTypeTree(Ident(tpnme.QUASIQUOTE_TUPLE_TYPE), trees)
+
       // q"{ $x }"
       override def makeBlock(stats: List[Tree]): Tree =
         if (stats.isEmpty) Literal(Constant())
