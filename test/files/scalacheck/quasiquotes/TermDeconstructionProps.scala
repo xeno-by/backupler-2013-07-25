@@ -7,7 +7,6 @@ import scala.reflect.runtime.universe._
 import Flag._
 
 object TermDeconstructionProps extends QuasiquoteProperties("term deconstruction") {
-
   property("f(x)") = forAll { (x: Tree) =>
     val q"f($x1)" = q"f($x)"
     x1 ≈ x

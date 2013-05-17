@@ -7,7 +7,6 @@ import scala.reflect.runtime.universe._
 import Flag._
 
 object TypeDeconstructionProps extends QuasiquoteProperties("type deconstruction") {
-
   property("ident(type name)") = forAll { (name: TypeName) =>
     val t = Ident(name)
     val tq"$t1" = t

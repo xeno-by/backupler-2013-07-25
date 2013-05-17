@@ -11,11 +11,9 @@ trait Parsers { self: Quasiquotes =>
   import global._
 
   abstract class Parser extends {
-
     val global: self.global.type = self.global
 
   } with ScalaParser {
-
     def wrapCode(code: String): String =
       s"object wrapper { $$wrapper$$self => $EOL $code $EOL }"
 
@@ -121,7 +119,7 @@ trait Parsers { self: Quasiquotes =>
           if (in.token == AT) {
             in.nextToken()
             annots += annot
-          } else if(isPlaceholder && ahead { in.token == AT || isModifier || isDefIntro || isIdent}) {
+          } else if (isPlaceholder && ahead { in.token == AT || isModifier || isDefIntro || isIdent}) {
             println(s"consuming ${in.name}")
             annots += modsPlaceholderAnnot(in.name)
             in.nextToken()
@@ -147,7 +145,6 @@ trait Parsers { self: Quasiquotes =>
   object TermParser extends Parser
 
   object CaseParser extends Parser {
-
     override def wrapCode(code: String) = super.wrapCode("something match { " + code + " }")
 
     override def unwrapTree(wrappedTree: Tree): Tree = {
@@ -159,7 +156,6 @@ trait Parsers { self: Quasiquotes =>
   }
 
   object TypeParser extends Parser {
-
     override def wrapCode(code: String) = super.wrapCode("type T = " + code)
 
     override def unwrapTree(wrappedTree: Tree): Tree = {

@@ -7,9 +7,7 @@ import scala.reflect.runtime.universe._
 import Flag._
 
 object TermConstructionProps extends QuasiquoteProperties("term construction") {
-
   val anyRef = Select(Ident(TermName("scala")), TypeName("AnyRef"))
-
   val emtpyConstructor =
     DefDef(
       Modifiers(), nme.CONSTRUCTOR, List(),

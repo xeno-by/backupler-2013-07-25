@@ -143,7 +143,6 @@ trait BuildUtils { self: SymbolTable =>
     }
 
     object TupleN extends TupleNExtractor {
-
       def apply(args: List[Tree]): Tree = args match {
         case Nil      => q"()"
         case _        =>
@@ -166,7 +165,6 @@ trait BuildUtils { self: SymbolTable =>
     }
 
     object TupleTypeN extends TupleNExtractor {
-
       def apply(args: List[Tree]): Tree = args match {
         case Nil      => tq"scala.Unit"
         case _        =>

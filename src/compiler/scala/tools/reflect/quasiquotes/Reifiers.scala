@@ -28,7 +28,6 @@ trait Reifiers { self: Quasiquotes =>
   }
 
   abstract class Reifier(val universe: Tree, val placeholders: Placeholders) extends {
-
     val global: self.global.type = self.global
     val mirror = EmptyTree
     val typer = null
@@ -36,7 +35,6 @@ trait Reifiers { self: Quasiquotes =>
     val concrete = false
 
   } with ReflectReifier with Types {
-
     // shortcut
     val u = universe
 
@@ -63,7 +61,6 @@ trait Reifiers { self: Quasiquotes =>
     }
 
     object AnnotPlaceholder {
-
       def unapply(tree: Tree): Option[(String, List[Tree])] = tree match {
         case Apply(Select(New(Placeholder(name)), nme.CONSTRUCTOR), args) => Some((name, args))
         case _ => None
@@ -71,7 +68,6 @@ trait Reifiers { self: Quasiquotes =>
     }
 
     object ModsPlaceholder {
-
       def unapply(tree: Tree): Option[String] = tree match {
         case q"new ${Ident(tpnme.QUASIQUOTE_MODS)}(${Literal(Constant(s: String))})" =>
           Some(s)
@@ -114,7 +110,6 @@ trait Reifiers { self: Quasiquotes =>
   }
 
   class ApplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
-
     def isSupportedZeroCardinalityType(tpe: Type): Boolean =
       tpe <:< treeType || tpe <:< nameType || tpe <:< modsType || tpe <:< flagsType
 
@@ -172,19 +167,13 @@ trait Reifiers { self: Quasiquotes =>
       }
 
       def iterableN(n: Int, tpe: Type): Type =
-        if (n == 0)
-          tpe
-        else
-          appliedType(IterableClass.toType, List(iterableN(n - 1, tpe)))
+        if (n == 0) tpe
+        else appliedType(IterableClass.toType, List(iterableN(n - 1, tpe)))
 
       def extractIterableN(n: Int, tpe: Type): Option[Type] =
-        if (n == 0)
-          Some(tpe)
-        else
-          if (tpe <:< iterableType)
-            extractIterableN(n - 1, tpe.typeArguments(0))
-          else
-            None
+        if (n == 0) Some(tpe)
+        else if (tpe <:< iterableType) extractIterableN(n - 1, tpe.typeArguments(0))
+        else None
     }
 
     override def reifyBasicTree(tree: Tree): Tree = tree match {
@@ -327,7 +316,6 @@ trait Reifiers { self: Quasiquotes =>
   }
 
   class ApplyReifierWithSymbolSplicing(universe: Tree, placeholders: Placeholders) extends ApplyReifier(universe, placeholders) {
-
     override def isSupportedZeroCardinalityType(tpe: Type) =
       super.isSupportedZeroCardinalityType(tpe) || tpe <:< symbolType
 
@@ -342,7 +330,6 @@ trait Reifiers { self: Quasiquotes =>
   }
 
   class UnapplyReifier(universe: Tree, placeholders: Placeholders) extends Reifier(universe, placeholders) {
-
     object CorrespondsTo {
       def unapply(name: String): Option[(Tree, Int)] =
         placeholders.get(name)
