@@ -157,7 +157,7 @@ trait BuildUtils { self: SymbolTable =>
           if args.length <= MaxTupleArity && id.symbol == TupleClass(args.length).companionModule=>
           Some(args)
         case Apply(Select(id @ Ident(nme.scala_), TermName(tuple)), args)
-          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == "Tuple" + args.length =>
+          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == TupleClass(args.length).name =>
           Some(args)
         case _ =>
           None
@@ -179,7 +179,7 @@ trait BuildUtils { self: SymbolTable =>
           if args.length <= MaxTupleArity && id.symbol == TupleClass(args.length) =>
           Some(args)
         case AppliedTypeTree(Select(id @ Ident(nme.scala_), TermName(tuple)), args)
-          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == "Tuple" + args.length =>
+          if args.length <= MaxTupleArity && id.symbol == ScalaPackage && tuple == TupleClass(args.length).name =>
           Some(args)
         case _ =>
           None
