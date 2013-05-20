@@ -461,6 +461,7 @@ trait Definitions extends api.StandardDefinitions {
     // collections classes
     lazy val ConsClass          = requiredClass[scala.collection.immutable.::[_]]
     lazy val IteratorClass      = requiredClass[scala.collection.Iterator[_]]
+    lazy val IterableClass      = requiredClass[scala.collection.Iterable[_]]
     lazy val ListClass          = requiredClass[scala.collection.immutable.List[_]]
     lazy val SeqClass           = requiredClass[scala.collection.Seq[_]]
     lazy val StringBuilderClass = requiredClass[scala.collection.mutable.StringBuilder]
@@ -542,6 +543,7 @@ trait Definitions extends api.StandardDefinitions {
 
     lazy val TypeCreatorClass      = getClassIfDefined("scala.reflect.api.TypeCreator") // defined in scala-reflect.jar, so we need to be careful
     lazy val TreeCreatorClass      = getClassIfDefined("scala.reflect.api.TreeCreator") // defined in scala-reflect.jar, so we need to be careful
+    lazy val LiftableClass         = getClassIfDefined("scala.reflect.api.Liftable")    // defined in scala-reflect.jar, so we need to be careful
 
     lazy val MacroClass                   = getClassIfDefined("scala.reflect.macros.Macro") // defined in scala-reflect.jar, so we need to be careful
     lazy val MacroContextClass            = getClassIfDefined("scala.reflect.macros.Context") // defined in scala-reflect.jar, so we need to be careful
@@ -556,6 +558,14 @@ trait Definitions extends api.StandardDefinitions {
 
     lazy val StringContextClass           = requiredClass[scala.StringContext]
          def StringContext_f              = getMemberMethod(StringContextClass, nme.f)
+
+    lazy val QuasiquoteClass            = if (ApiUniverseClass != NoSymbol) getMember(ApiUniverseClass, tpnme.Quasiquote) else NoSymbol
+    lazy val QuasiquoteClass_q          = if (QuasiquoteClass != NoSymbol) getMember(QuasiquoteClass, nme.q) else NoSymbol
+    lazy val QuasiquoteClass_q_apply    = if (QuasiquoteClass_q != NoSymbol) getMember(QuasiquoteClass_q, nme.apply) else NoSymbol
+    lazy val QuasiquoteClass_q_unapply  = if (QuasiquoteClass_q != NoSymbol) getMember(QuasiquoteClass_q, nme.unapply) else NoSymbol
+    lazy val QuasiquoteClass_tq         = if (QuasiquoteClass != NoSymbol) getMember(QuasiquoteClass, nme.tq) else NoSymbol
+    lazy val QuasiquoteClass_tq_apply   = if (QuasiquoteClass_tq != NoSymbol) getMember(QuasiquoteClass_tq, nme.apply) else NoSymbol
+    lazy val QuasiquoteClass_tq_unapply = if (QuasiquoteClass_tq != NoSymbol) getMember(QuasiquoteClass_tq, nme.unapply) else NoSymbol
 
     lazy val ScalaSignatureAnnotation = requiredClass[scala.reflect.ScalaSignature]
     lazy val ScalaLongSignatureAnnotation = requiredClass[scala.reflect.ScalaLongSignature]

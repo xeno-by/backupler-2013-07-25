@@ -3420,7 +3420,14 @@ trait Typers extends Adaptations with Tags {
 
         case otpe if mode.inPatternMode && unapplyMember(otpe).exists =>
           val unapply = unapplyMember(otpe)
-          if (definitions.isUntypedMacro(unapply)) treeCopy.Apply(tree, gen.mkAttributedSelect(fun, unapply), args) setType UntypedClass.tpe
+          if (unapply == QuasiquoteClass_q_unapply || unapply == QuasiquoteClass_tq_unapply) {
+            val expandee = treeCopy.Apply(tree, gen.mkAttributedSelect(fun, unapply), args)
+            macroExpand1(this, expandee) match {
+              case Success(expanded) => typed(expanded, mode, pt)
+              case _ => setError(tree)
+            }
+          }
+          else if (definitions.isUntypedMacro(unapply)) treeCopy.Apply(tree, gen.mkAttributedSelect(fun, unapply), args) setType UntypedClass.tpe
           else doTypedUnapply(tree, fun0, fun, args, mode, pt)
 
         case _ =>

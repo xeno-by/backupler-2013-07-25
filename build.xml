@@ -529,6 +529,7 @@ TODO:
 
     <path id="quick.scalacheck.build.path">
       <pathelement location="${build-quick.dir}/classes/library"/>
+      <pathelement location="${build-quick.dir}/classes/reflect"/>
       <pathelement location="${build-quick.dir}/classes/actors"/>
       <pathelement location="${build-quick.dir}/classes/scalacheck"/>
       <path refid="partest.extras.classpath"/>
