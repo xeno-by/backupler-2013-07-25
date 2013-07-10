@@ -76,16 +76,10 @@ trait Resolvers {
     }
   }
 
-  // FIXME: cannot write this concisely because of SI-7507
-  // lazy val (isImplBundle, macroImplOwner, macroImpl, macroImplTargs) =
-  private lazy val dissectedMacroImplRef =
+  lazy val isImplMethod = !isImplBundle
+  lazy val (isImplBundle, macroImplOwner, macroImpl, targs) =
     macroImplRef match {
       case MacroImplReference(isBundle, owner, meth, targs) => (isBundle, owner, meth, targs)
       case _ => MacroImplReferenceWrongShapeError()
     }
-  lazy val isImplBundle = dissectedMacroImplRef._1
-  lazy val isImplMethod = !isImplBundle
-  lazy val macroImplOwner = dissectedMacroImplRef._2
-  lazy val macroImpl = dissectedMacroImplRef._3
-  lazy val targs = dissectedMacroImplRef._4
 }

@@ -72,14 +72,8 @@ trait Validators {
 
   // aXXX (e.g. aparamss) => characteristics of the actual macro impl signature extracted from the macro impl ("a" stands for "actual")
   // rXXX (e.g. rparamss) => characteristics of the reference macro impl signature synthesized from the macro def ("r" stands for "reference")
-  // FIXME: cannot write this concisely because of SI-7507
-  //lazy val MacroImplSig(atparams, aparamss, aret) = macroImplSig
-  //lazy val MacroImplSig(_, rparamss, rret) = referenceMacroImplSig
-  lazy val atparams = macroImplSig.tparams
-  lazy val aparamss = macroImplSig.paramss
-  lazy val aret = macroImplSig.ret
-  lazy val rparamss = referenceMacroImplSig.paramss
-  lazy val rret = referenceMacroImplSig.ret
+  lazy val MacroImplSig(atparams, aparamss, aret) = macroImplSig
+  lazy val MacroImplSig(_, rparamss, rret) = referenceMacroImplSig
 
   // Technically this can be just an alias to MethodType, but promoting it to a first-class entity
   // provides better encapsulation and convenient syntax for pattern matching.
