@@ -664,7 +664,10 @@ trait Implicits {
               atPos(itree.pos)(Apply(itree, List(Ident("<argument>") setType approximate(arg1)))),
               EXPRmode,
               approximate(arg2)
-            )
+            ) match {
+              case tree if isImplicitMethodType(tree.tpe) => applyImplicitArgs(tree)
+              case tree => tree
+            }
           }
           else
             typed1(itree, EXPRmode, wildPt)
@@ -675,7 +678,7 @@ trait Implicits {
         if (Statistics.canEnable) Statistics.incCounter(typedImplicits)
 
         printTyping("typed implicit %s:%s, pt=%s".format(itree1, itree1.tpe, wildPt))
-        val itree2 = if (isView) (itree1: @unchecked) match { case Apply(fun, _) => fun }
+        val itree2 = if (isView) treeInfo.dissectApplied(itree1).callee
                      else adapt(itree1, EXPRmode, wildPt)
 
         printTyping("adapted implicit %s:%s to %s".format(
